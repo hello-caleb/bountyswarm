@@ -227,3 +227,59 @@ export interface ComplianceResponse {
   disputeWindowEndsAt?: number;
   timestamp: number;
 }
+
+// =====================
+// Executor Agent Types
+// =====================
+
+// Agent approvals required for execution
+export interface AgentApprovals {
+  scout: boolean;
+  analyst: boolean;
+  auditor: boolean;
+  compliance: boolean;
+}
+
+// Payment request for executor
+export interface PaymentRequest {
+  winnerId: string;
+  walletAddress: string;
+  amount: string; // Amount in MNEE (as string to avoid BigInt serialization issues)
+  projectId: string;
+  projectUrl: string;
+  track: Track;
+  category: "TRACK_WINNER" | "RUNNER_UP";
+}
+
+// Transaction receipt from blockchain
+export interface TransactionReceipt {
+  transactionHash: string;
+  blockNumber: number;
+  blockHash: string;
+  gasUsed: string;
+  status: "success" | "failed";
+}
+
+// Executor agent input
+export interface ExecutorInput {
+  paymentRequest: PaymentRequest;
+  approvals: AgentApprovals;
+  metadata: {
+    submissionHash: string;
+    scoreHash: string;
+    analystTimestamp: number;
+    auditorTimestamp: number;
+    complianceTimestamp: number;
+  };
+}
+
+// Executor agent response
+export interface ExecutorResponse {
+  status: "COMPLETE" | "ERROR";
+  message: string;
+  transactionHash?: string;
+  blockNumber?: number;
+  receipt?: TransactionReceipt;
+  prizeMetadata?: PrizeMetadata;
+  timestamp: number;
+}
