@@ -106,3 +106,124 @@ export interface AnalystResponse {
   breakdown: ScoreBreakdown[];
   timestamp: number;
 }
+
+// ===================
+// Auditor Agent Types
+// ===================
+
+// Winner profile for auditor verification
+export interface WinnerProfile {
+  id: string;
+  name: string;
+  email: string;
+  age: number;
+  country: string;
+  employer?: string;
+  walletAddress: string;
+  projectId: string;
+  projectUrl: string;
+  submissionId: string;
+}
+
+// Types of checks the auditor performs
+export type AuditorCheckType =
+  | "AGE_VERIFICATION"
+  | "LOCATION_VERIFICATION"
+  | "EMPLOYER_CONFLICT"
+  | "PLAGIARISM_CHECK"
+  | "RULE_COMPLIANCE"
+  | "SUBMISSION_AUTHENTICITY";
+
+// Result of a single auditor check
+export interface AuditorCheck {
+  checkType: AuditorCheckType;
+  passed: boolean;
+  details: string;
+}
+
+// Auditor agent response
+export interface AuditorResponse {
+  status: "APPROVED" | "REJECTED" | "WAITING";
+  message: string;
+  checks: AuditorCheck[];
+  violations: string[];
+  timestamp: number;
+}
+
+// Restricted countries list (OFAC sanctions, etc.)
+export const RESTRICTED_COUNTRIES = [
+  "North Korea",
+  "Iran",
+  "Syria",
+  "Cuba",
+  "Crimea",
+  "Russia",
+] as const;
+
+// Hackathon sponsor companies (employees not eligible)
+export const SPONSOR_COMPANIES = [
+  "MNEE",
+  "Devpost",
+  "RockWallet",
+  "Blockchain North",
+] as const;
+
+// ======================
+// Compliance Agent Types
+// ======================
+
+// Tax form types
+export type TaxFormType = "W9" | "W8BEN" | "W8BENE";
+
+// Tax form submission status
+export interface TaxFormStatus {
+  formType: TaxFormType | null;
+  submitted: boolean;
+  submittedAt?: number;
+  verified: boolean;
+  verifiedAt?: number;
+}
+
+// Banking information status
+export interface BankingInfoStatus {
+  hasAccountNumber: boolean;
+  hasRoutingNumber: boolean;
+  hasAccountHolderName: boolean;
+  verified: boolean;
+}
+
+// Dispute window configuration
+export const DISPUTE_WINDOW_HOURS = 48;
+
+// Winner compliance documentation
+export interface WinnerComplianceData {
+  winnerId: string;
+  walletAddress: string;
+  taxForm: TaxFormStatus;
+  bankingInfo: BankingInfoStatus;
+  judgingEndedAt: number; // Timestamp when judging ended (for dispute window)
+}
+
+// Types of compliance checks
+export type ComplianceCheckType =
+  | "TAX_FORM"
+  | "BANKING_INFO"
+  | "DISPUTE_WINDOW";
+
+// Result of a single compliance check
+export interface ComplianceCheck {
+  checkType: ComplianceCheckType;
+  passed: boolean;
+  details: string;
+  required?: string[]; // List of missing requirements
+}
+
+// Compliance agent response
+export interface ComplianceResponse {
+  status: "APPROVED" | "WAITING";
+  message: string;
+  checks: ComplianceCheck[];
+  missingRequirements: string[];
+  disputeWindowEndsAt?: number;
+  timestamp: number;
+}
