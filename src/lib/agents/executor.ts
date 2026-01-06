@@ -54,7 +54,7 @@ function mockHash(input: string): string {
   for (let i = 0; i < input.length; i++) {
     const char = input.charCodeAt(i);
     hash = (hash << 5) - hash + char;
-    hash = hash & hash;
+    hash = hash | 0; // Convert to 32-bit integer
   }
   const hexHash = Math.abs(hash).toString(16).padStart(64, "0");
   return `0x${hexHash.slice(0, 64)}`;
@@ -123,6 +123,9 @@ function validateApprovals(approvals: AgentApprovals): {
   };
 }
 
+// Maximum prize amount in MNEE (safety check)
+const MAX_PRIZE_AMOUNT = 100000;
+
 /**
  * Validate payment request fields
  */
@@ -149,11 +152,37 @@ function validatePaymentRequest(input: ExecutorInput): {
     const amount = parseFloat(paymentRequest.amount);
     if (isNaN(amount) || amount <= 0) {
       errors.push("Invalid payment amount: must be positive");
+    } else if (amount > MAX_PRIZE_AMOUNT) {
+      errors.push(`Payment amount exceeds maximum allowed: ${MAX_PRIZE_AMOUNT} MNEE`);
     }
   }
 
   if (!paymentRequest.projectId) {
     errors.push("Missing project ID");
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+}
+
+/**
+ * Validate metadata hash formats
+ */
+function validateMetadata(input: ExecutorInput): {
+  valid: boolean;
+  errors: string[];
+} {
+  const errors: string[] = [];
+  const { metadata } = input;
+
+  if (metadata.submissionHash && !metadata.submissionHash.match(/^0x[a-fA-F0-9]{64}$/)) {
+    errors.push("Invalid submission hash format");
+  }
+
+  if (metadata.scoreHash && !metadata.scoreHash.match(/^0x[a-fA-F0-9]{64}$/)) {
+    errors.push("Invalid score hash format");
   }
 
   return {
@@ -269,7 +298,25 @@ export async function executorAgent(input: ExecutorInput): Promise<ExecutorRespo
     timestamp,
   });
 
-  // Step 3: Prepare prize metadata for blockchain
+  // Step 3: Validate metadata format (if provided)
+  const metadataCheck = validateMetadata(input);
+  if (!metadataCheck.valid) {
+    logDecision({
+      agent: "Executor",
+      action: "METADATA_VALIDATION_FAILED",
+      status: "ERROR",
+      context: { errors: metadataCheck.errors },
+      timestamp,
+    });
+
+    return {
+      status: "ERROR",
+      message: `Invalid metadata: ${metadataCheck.errors.join("; ")}`,
+      timestamp,
+    };
+  }
+
+  // Step 4: Prepare prize metadata for blockchain (use hashes from input or generate)
   const prizeMetadata: PrizeMetadata = {
     submissionHash:
       input.metadata.submissionHash || mockHash(input.paymentRequest.projectUrl),
@@ -290,7 +337,7 @@ export async function executorAgent(input: ExecutorInput): Promise<ExecutorRespo
     timestamp,
   });
 
-  // Step 4: Execute blockchain transaction
+  // Step 5: Execute blockchain transaction
   try {
     logDecision({
       agent: "Executor",
@@ -358,8 +405,10 @@ export async function executorAgent(input: ExecutorInput): Promise<ExecutorRespo
 export const _testHelpers = {
   validateApprovals,
   validatePaymentRequest,
+  validateMetadata,
   mockDistributePrize,
   mockHash,
   generateMockTxHash,
   setMockTransactionFailure,
+  MAX_PRIZE_AMOUNT,
 };
