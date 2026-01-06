@@ -8,18 +8,34 @@ export interface ScoutResponse {
   timestamp: number;
 }
 
-// Mock hackathon state - toggle this to test different scenarios
-let mockHackathonState: HackathonStatus = "IN_PROGRESS";
-
-export function setMockHackathonStatus(status: HackathonStatus): void {
-  mockHackathonState = status;
+/**
+ * Configuration for the Scout agent
+ * Using dependency injection to avoid mutable module-level state
+ */
+export interface ScoutConfig {
+  checkHackathonStatus: () => Promise<HackathonStatus>;
 }
 
-export async function checkHackathonStatus(): Promise<HackathonStatus> {
+/**
+ * Default implementation that would integrate with Devpost API
+ * In production, replace with real API call
+ */
+export async function defaultCheckHackathonStatus(): Promise<HackathonStatus> {
   // TODO: Replace with real Devpost API integration
-  // For now, return mock state with simulated network delay
+  // For now, return IN_PROGRESS with simulated network delay
   await new Promise((resolve) => setTimeout(resolve, 100));
-  return mockHackathonState;
+  return "IN_PROGRESS";
+}
+
+/**
+ * Creates a mock status checker for testing
+ * This avoids mutable module-level state
+ */
+export function createMockStatusChecker(status: HackathonStatus): () => Promise<HackathonStatus> {
+  return async () => {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    return status;
+  };
 }
 
 function logDecision(log: AgentLog): void {
@@ -29,8 +45,10 @@ function logDecision(log: AgentLog): void {
   );
 }
 
-export async function scoutAgent(): Promise<ScoutResponse> {
-  const hackathonStatus = await checkHackathonStatus();
+export async function scoutAgent(
+  config: ScoutConfig = { checkHackathonStatus: defaultCheckHackathonStatus }
+): Promise<ScoutResponse> {
+  const hackathonStatus = await config.checkHackathonStatus();
   const timestamp = Date.now();
 
   if (hackathonStatus === "JUDGING_COMPLETE") {

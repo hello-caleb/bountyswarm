@@ -69,13 +69,23 @@ async function verifyAge(winner: WinnerProfile): Promise<AuditorCheck> {
 }
 
 /**
+ * Normalize a string for case-insensitive comparison
+ * Trims whitespace and converts to lowercase
+ */
+function normalizeString(str: string): string {
+  return str.trim().toLowerCase();
+}
+
+/**
  * Verify participant is not from a restricted country
+ * Performs case-insensitive, whitespace-tolerant matching
  */
 async function verifyLocation(winner: WinnerProfile): Promise<AuditorCheck> {
   await new Promise((resolve) => setTimeout(resolve, 10));
 
-  const isRestricted = RESTRICTED_COUNTRIES.includes(
-    winner.country as (typeof RESTRICTED_COUNTRIES)[number]
+  const normalizedCountry = normalizeString(winner.country || "");
+  const isRestricted = RESTRICTED_COUNTRIES.some(
+    (restricted) => normalizeString(restricted) === normalizedCountry
   );
 
   return {

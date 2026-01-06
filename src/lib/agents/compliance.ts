@@ -131,7 +131,9 @@ export async function complianceAgent(
 ): Promise<ComplianceResponse> {
   const timestamp = Date.now();
 
-  // Validate input
+  // Validate input - return ERROR for invalid data (distinct from WAITING)
+  // ERROR means the input is fundamentally broken and shouldn't proceed
+  // WAITING means requirements are pending but input is valid
   if (!data || !data.winnerId) {
     logDecision({
       agent: "Compliance",
@@ -142,7 +144,7 @@ export async function complianceAgent(
     });
 
     return {
-      status: "WAITING",
+      status: "ERROR",
       message: "Invalid compliance data provided",
       checks: [],
       missingRequirements: ["Valid winner compliance data required"],
