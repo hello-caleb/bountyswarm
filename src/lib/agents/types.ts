@@ -286,3 +286,100 @@ export interface ExecutorResponse {
   prizeMetadata?: PrizeMetadata;
   timestamp: number;
 }
+
+// ========================
+// Consensus Protocol Types
+// ========================
+
+// Agent names in the swarm
+export type AgentName = "scout" | "analyst" | "auditor" | "compliance" | "executor";
+
+// Consensus vote status
+export type ConsensusVoteStatus = "APPROVED" | "REJECTED" | "WAITING" | "PENDING" | "ERROR";
+
+// Individual agent vote in the consensus
+export interface AgentVote {
+  agent: AgentName;
+  status: ConsensusVoteStatus;
+  message: string;
+  timestamp: number;
+  retryCount: number;
+  data?: Record<string, unknown>;
+}
+
+// Overall consensus state
+export type ConsensusState =
+  | "PENDING"      // Not started yet
+  | "IN_PROGRESS"  // Agents are voting
+  | "APPROVED"     // All agents approved
+  | "REJECTED"     // At least one agent rejected
+  | "WAITING"      // At least one agent waiting, none rejected
+  | "OVERRIDE"     // Human override applied
+  | "ERROR";       // System error occurred
+
+// Configuration for retry behavior
+export interface RetryConfig {
+  maxRetries: number;
+  retryDelayMs: number;
+  waitingTimeoutMs: number;
+}
+
+// Default retry configuration
+export const DEFAULT_RETRY_CONFIG: RetryConfig = {
+  maxRetries: 3,
+  retryDelayMs: 5000,
+  waitingTimeoutMs: 300000, // 5 minutes
+};
+
+// Human override request
+export interface OverrideRequest {
+  adminId: string;
+  reason: string;
+  timestamp: number;
+  agentOverrides: Partial<Record<AgentName, ConsensusVoteStatus>>;
+}
+
+// Consensus session for a single winner
+export interface ConsensusSession {
+  sessionId: string;
+  winnerId: string;
+  projectId: string;
+  state: ConsensusState;
+  votes: Record<AgentName, AgentVote>;
+  override?: OverrideRequest;
+  startedAt: number;
+  completedAt?: number;
+  logs: ConsensusLog[];
+}
+
+// Consensus log entry for audit trail
+export interface ConsensusLog {
+  action: string;
+  agent?: AgentName;
+  previousState?: ConsensusState;
+  newState: ConsensusState;
+  message: string;
+  timestamp: number;
+}
+
+// Input for starting consensus on a winner
+export interface ConsensusInput {
+  winner: AnalystWinner;
+  winnerProfile: WinnerProfile;
+  complianceData: WinnerComplianceData;
+  projectSubmission: ProjectSubmission;
+}
+
+// Final consensus response
+export interface ConsensusResponse {
+  sessionId: string;
+  winnerId: string;
+  state: ConsensusState;
+  message: string;
+  votes: Record<AgentName, AgentVote>;
+  canProceedToPayment: boolean;
+  blockingAgents: AgentName[];
+  waitingAgents: AgentName[];
+  override?: OverrideRequest;
+  timestamp: number;
+}
