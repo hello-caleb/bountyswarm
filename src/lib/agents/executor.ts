@@ -67,7 +67,7 @@ function mockHash(input: string): string {
 async function mockDistributePrize(
   winnerAddress: string,
   amount: string,
-  metadata: PrizeMetadata
+  _metadata: PrizeMetadata
 ): Promise<TransactionReceipt> {
   // Simulate network delay (1-2 seconds for block confirmation)
   await new Promise((resolve) => setTimeout(resolve, 100));
