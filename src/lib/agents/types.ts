@@ -219,8 +219,11 @@ export interface ComplianceCheck {
 }
 
 // Compliance agent response
+// ERROR: Invalid input data (should not proceed)
+// WAITING: Missing requirements but can proceed when requirements are met
+// APPROVED: All requirements met
 export interface ComplianceResponse {
-  status: "APPROVED" | "WAITING";
+  status: "APPROVED" | "WAITING" | "ERROR";
   message: string;
   checks: ComplianceCheck[];
   missingRequirements: string[];

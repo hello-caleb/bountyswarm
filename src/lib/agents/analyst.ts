@@ -131,7 +131,13 @@ function identifyWinners(
     const trackProjects = breakdowns.filter((b) => b.track === track);
     if (trackProjects.length > 0) {
       const topProject = trackProjects[0]; // Already sorted by score
-      const project = projects.find((p) => p.id === topProject.projectId)!;
+      const project = projects.find((p) => p.id === topProject.projectId);
+
+      // Safety check: skip if project data is inconsistent
+      if (!project) {
+        console.warn(`Data integrity issue: project ${topProject.projectId} not found in projects array`);
+        continue;
+      }
 
       winners.push({
         projectId: topProject.projectId,
@@ -153,7 +159,13 @@ function identifyWinners(
   const runnersUp = nonWinners.slice(0, 2);
 
   for (const runnerUp of runnersUp) {
-    const project = projects.find((p) => p.id === runnerUp.projectId)!;
+    const project = projects.find((p) => p.id === runnerUp.projectId);
+
+    // Safety check: skip if project data is inconsistent
+    if (!project) {
+      console.warn(`Data integrity issue: project ${runnerUp.projectId} not found in projects array`);
+      continue;
+    }
 
     winners.push({
       projectId: runnerUp.projectId,

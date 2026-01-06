@@ -334,18 +334,18 @@ describe("Compliance Agent", () => {
   });
 
   describe("input validation", () => {
-    it("returns WAITING for null data", async () => {
+    it("returns ERROR for null data", async () => {
       const result = await complianceAgent(null as unknown as WinnerComplianceData);
 
-      expect(result.status).toBe("WAITING");
+      expect(result.status).toBe("ERROR");
       expect(result.message).toContain("Invalid compliance data");
     });
 
-    it("returns WAITING for data without winnerId", async () => {
+    it("returns ERROR for data without winnerId", async () => {
       const data = createComplianceData({ winnerId: "" });
       const result = await complianceAgent(data);
 
-      expect(result.status).toBe("WAITING");
+      expect(result.status).toBe("ERROR");
       expect(result.message).toContain("Invalid compliance data");
     });
   });

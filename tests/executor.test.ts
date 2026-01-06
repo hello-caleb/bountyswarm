@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   executorAgent,
-  setMockTransactionFailure,
+  createMockBlockchainService,
+  type ExecutorConfig,
 } from "../src/lib/agents/executor";
 import type { ExecutorInput, AgentApprovals, PaymentRequest } from "../src/lib/agents/types";
 
@@ -50,19 +51,18 @@ function createExecutorInput(
   };
 }
 
+// Helper to create a fresh config for each test
+function createTestConfig(shouldFail = false): ExecutorConfig {
+  const service = createMockBlockchainService({ shouldFail });
+  return { distributePrize: service.distributePrize };
+}
+
 describe("Executor Agent", () => {
-  beforeEach(() => {
-    setMockTransactionFailure(false);
-  });
-
-  afterEach(() => {
-    setMockTransactionFailure(false);
-  });
-
   describe("successful execution", () => {
     it("returns COMPLETE when all requirements are met", async () => {
       const input = createExecutorInput();
-      const result = await executorAgent(input);
+      const config = createTestConfig();
+      const result = await executorAgent(input, config);
 
       expect(result.status).toBe("COMPLETE");
       expect(result.message).toContain("successfully sent");
@@ -74,7 +74,8 @@ describe("Executor Agent", () => {
 
     it("includes transaction receipt in response", async () => {
       const input = createExecutorInput();
-      const result = await executorAgent(input);
+      const config = createTestConfig();
+      const result = await executorAgent(input, config);
 
       expect(result.receipt).toBeDefined();
       expect(result.receipt?.status).toBe("success");
@@ -84,7 +85,8 @@ describe("Executor Agent", () => {
 
     it("includes prize metadata in response", async () => {
       const input = createExecutorInput();
-      const result = await executorAgent(input);
+      const config = createTestConfig();
+      const result = await executorAgent(input, config);
 
       expect(result.prizeMetadata).toBeDefined();
       expect(result.prizeMetadata?.formsVerified).toBe(true);
@@ -101,7 +103,8 @@ describe("Executor Agent", () => {
           walletAddress: "0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
         }),
       });
-      const result = await executorAgent(input);
+      const config = createTestConfig();
+      const result = await executorAgent(input, config);
 
       expect(result.message).toContain("5000 MNEE");
       expect(result.message).toContain("0xABCDEF1234567890ABCDEF1234567890ABCDEF12");
@@ -113,7 +116,8 @@ describe("Executor Agent", () => {
       const input = createExecutorInput({
         approvals: createApprovals({ scout: false }),
       });
-      const result = await executorAgent(input);
+      const config = createTestConfig();
+      const result = await executorAgent(input, config);
 
       expect(result.status).toBe("ERROR");
       expect(result.message).toContain("Missing required approvals");
@@ -124,7 +128,8 @@ describe("Executor Agent", () => {
       const input = createExecutorInput({
         approvals: createApprovals({ analyst: false }),
       });
-      const result = await executorAgent(input);
+      const config = createTestConfig();
+      const result = await executorAgent(input, config);
 
       expect(result.status).toBe("ERROR");
       expect(result.message).toContain("Analyst");
@@ -134,7 +139,8 @@ describe("Executor Agent", () => {
       const input = createExecutorInput({
         approvals: createApprovals({ auditor: false }),
       });
-      const result = await executorAgent(input);
+      const config = createTestConfig();
+      const result = await executorAgent(input, config);
 
       expect(result.status).toBe("ERROR");
       expect(result.message).toContain("Auditor");
@@ -144,7 +150,8 @@ describe("Executor Agent", () => {
       const input = createExecutorInput({
         approvals: createApprovals({ compliance: false }),
       });
-      const result = await executorAgent(input);
+      const config = createTestConfig();
+      const result = await executorAgent(input, config);
 
       expect(result.status).toBe("ERROR");
       expect(result.message).toContain("Compliance");
@@ -159,7 +166,8 @@ describe("Executor Agent", () => {
           compliance: false,
         },
       });
-      const result = await executorAgent(input);
+      const config = createTestConfig();
+      const result = await executorAgent(input, config);
 
       expect(result.status).toBe("ERROR");
       expect(result.message).toContain("Scout");
@@ -174,7 +182,8 @@ describe("Executor Agent", () => {
       const input = createExecutorInput({
         paymentRequest: createPaymentRequest({ walletAddress: "" }),
       });
-      const result = await executorAgent(input);
+      const config = createTestConfig();
+      const result = await executorAgent(input, config);
 
       expect(result.status).toBe("ERROR");
       expect(result.message).toContain("Missing wallet address");
@@ -184,7 +193,8 @@ describe("Executor Agent", () => {
       const input = createExecutorInput({
         paymentRequest: createPaymentRequest({ walletAddress: "invalid-address" }),
       });
-      const result = await executorAgent(input);
+      const config = createTestConfig();
+      const result = await executorAgent(input, config);
 
       expect(result.status).toBe("ERROR");
       expect(result.message).toContain("Invalid wallet address");
@@ -196,7 +206,8 @@ describe("Executor Agent", () => {
           walletAddress: "1234567890123456789012345678901234567890",
         }),
       });
-      const result = await executorAgent(input);
+      const config = createTestConfig();
+      const result = await executorAgent(input, config);
 
       expect(result.status).toBe("ERROR");
       expect(result.message).toContain("Invalid wallet address");
@@ -206,7 +217,8 @@ describe("Executor Agent", () => {
       const input = createExecutorInput({
         paymentRequest: createPaymentRequest({ amount: "" }),
       });
-      const result = await executorAgent(input);
+      const config = createTestConfig();
+      const result = await executorAgent(input, config);
 
       expect(result.status).toBe("ERROR");
       expect(result.message).toContain("Missing payment amount");
@@ -216,7 +228,8 @@ describe("Executor Agent", () => {
       const input = createExecutorInput({
         paymentRequest: createPaymentRequest({ amount: "0" }),
       });
-      const result = await executorAgent(input);
+      const config = createTestConfig();
+      const result = await executorAgent(input, config);
 
       expect(result.status).toBe("ERROR");
       expect(result.message).toContain("must be positive");
@@ -226,7 +239,8 @@ describe("Executor Agent", () => {
       const input = createExecutorInput({
         paymentRequest: createPaymentRequest({ amount: "-100" }),
       });
-      const result = await executorAgent(input);
+      const config = createTestConfig();
+      const result = await executorAgent(input, config);
 
       expect(result.status).toBe("ERROR");
       expect(result.message).toContain("must be positive");
@@ -236,7 +250,8 @@ describe("Executor Agent", () => {
       const input = createExecutorInput({
         paymentRequest: createPaymentRequest({ winnerId: "" }),
       });
-      const result = await executorAgent(input);
+      const config = createTestConfig();
+      const result = await executorAgent(input, config);
 
       expect(result.status).toBe("ERROR");
       expect(result.message).toContain("Missing winner ID");
@@ -246,7 +261,8 @@ describe("Executor Agent", () => {
       const input = createExecutorInput({
         paymentRequest: createPaymentRequest({ projectId: "" }),
       });
-      const result = await executorAgent(input);
+      const config = createTestConfig();
+      const result = await executorAgent(input, config);
 
       expect(result.status).toBe("ERROR");
       expect(result.message).toContain("Missing project ID");
@@ -260,7 +276,8 @@ describe("Executor Agent", () => {
           amount: "",
         }),
       });
-      const result = await executorAgent(input);
+      const config = createTestConfig();
+      const result = await executorAgent(input, config);
 
       expect(result.status).toBe("ERROR");
       expect(result.message).toContain("winner ID");
@@ -271,9 +288,9 @@ describe("Executor Agent", () => {
 
   describe("transaction failures", () => {
     it("returns ERROR when blockchain transaction fails", async () => {
-      setMockTransactionFailure(true);
       const input = createExecutorInput();
-      const result = await executorAgent(input);
+      const config = createTestConfig(true); // shouldFail = true
+      const result = await executorAgent(input, config);
 
       expect(result.status).toBe("ERROR");
       expect(result.message).toContain("Transaction failed");
@@ -281,9 +298,9 @@ describe("Executor Agent", () => {
     });
 
     it("does not include receipt on transaction failure", async () => {
-      setMockTransactionFailure(true);
       const input = createExecutorInput();
-      const result = await executorAgent(input);
+      const config = createTestConfig(true);
+      const result = await executorAgent(input, config);
 
       expect(result.receipt).toBeUndefined();
       expect(result.transactionHash).toBeUndefined();
@@ -292,14 +309,16 @@ describe("Executor Agent", () => {
 
   describe("input validation", () => {
     it("returns ERROR for null input", async () => {
-      const result = await executorAgent(null as unknown as ExecutorInput);
+      const config = createTestConfig();
+      const result = await executorAgent(null as unknown as ExecutorInput, config);
 
       expect(result.status).toBe("ERROR");
       expect(result.message).toContain("No execution input");
     });
 
     it("returns ERROR for undefined input", async () => {
-      const result = await executorAgent(undefined as unknown as ExecutorInput);
+      const config = createTestConfig();
+      const result = await executorAgent(undefined as unknown as ExecutorInput, config);
 
       expect(result.status).toBe("ERROR");
       expect(result.message).toContain("No execution input");
@@ -314,7 +333,8 @@ describe("Executor Agent", () => {
           category: "TRACK_WINNER",
         }),
       });
-      const result = await executorAgent(input);
+      const config = createTestConfig();
+      const result = await executorAgent(input, config);
 
       expect(result.status).toBe("COMPLETE");
       expect(result.message).toContain("2500 MNEE");
@@ -327,7 +347,8 @@ describe("Executor Agent", () => {
           category: "RUNNER_UP",
         }),
       });
-      const result = await executorAgent(input);
+      const config = createTestConfig();
+      const result = await executorAgent(input, config);
 
       expect(result.status).toBe("COMPLETE");
       expect(result.message).toContain("1250 MNEE");
@@ -337,7 +358,8 @@ describe("Executor Agent", () => {
       const input = createExecutorInput({
         paymentRequest: createPaymentRequest({ amount: "1234.56" }),
       });
-      const result = await executorAgent(input);
+      const config = createTestConfig();
+      const result = await executorAgent(input, config);
 
       expect(result.status).toBe("COMPLETE");
       expect(result.message).toContain("1234.56 MNEE");
@@ -350,9 +372,10 @@ describe("Executor Agent", () => {
       const input2 = createExecutorInput({
         paymentRequest: createPaymentRequest({ winnerId: "winner-2" }),
       });
+      const config = createTestConfig();
 
-      const result1 = await executorAgent(input1);
-      const result2 = await executorAgent(input2);
+      const result1 = await executorAgent(input1, config);
+      const result2 = await executorAgent(input2, config);
 
       expect(result1.transactionHash).not.toBe(result2.transactionHash);
     });
@@ -360,9 +383,12 @@ describe("Executor Agent", () => {
     it("increments block number for subsequent transactions", async () => {
       const input1 = createExecutorInput();
       const input2 = createExecutorInput();
+      // Use same config to share state
+      const service = createMockBlockchainService();
+      const config: ExecutorConfig = { distributePrize: service.distributePrize };
 
-      const result1 = await executorAgent(input1);
-      const result2 = await executorAgent(input2);
+      const result1 = await executorAgent(input1, config);
+      const result2 = await executorAgent(input2, config);
 
       expect(result2.blockNumber).toBeGreaterThan(result1.blockNumber!);
     });
@@ -373,7 +399,8 @@ describe("Executor Agent", () => {
       const input = createExecutorInput({
         paymentRequest: createPaymentRequest({ amount: "200000" }), // Exceeds 100000 limit
       });
-      const result = await executorAgent(input);
+      const config = createTestConfig();
+      const result = await executorAgent(input, config);
 
       expect(result.status).toBe("ERROR");
       expect(result.message).toContain("exceeds maximum");
@@ -383,7 +410,8 @@ describe("Executor Agent", () => {
       const input = createExecutorInput({
         paymentRequest: createPaymentRequest({ amount: "100000" }),
       });
-      const result = await executorAgent(input);
+      const config = createTestConfig();
+      const result = await executorAgent(input, config);
 
       expect(result.status).toBe("COMPLETE");
     });
@@ -400,7 +428,8 @@ describe("Executor Agent", () => {
           complianceTimestamp: Date.now() - 900000,
         },
       });
-      const result = await executorAgent(input);
+      const config = createTestConfig();
+      const result = await executorAgent(input, config);
 
       expect(result.status).toBe("ERROR");
       expect(result.message).toContain("Invalid submission hash");
@@ -416,7 +445,8 @@ describe("Executor Agent", () => {
           complianceTimestamp: Date.now() - 900000,
         },
       });
-      const result = await executorAgent(input);
+      const config = createTestConfig();
+      const result = await executorAgent(input, config);
 
       expect(result.status).toBe("ERROR");
       expect(result.message).toContain("Invalid score hash");
@@ -432,10 +462,31 @@ describe("Executor Agent", () => {
           complianceTimestamp: Date.now() - 900000,
         },
       });
-      const result = await executorAgent(input);
+      const config = createTestConfig();
+      const result = await executorAgent(input, config);
 
       expect(result.status).toBe("COMPLETE");
       expect(result.prizeMetadata?.submissionHash).toMatch(/^0x[a-f0-9]+$/);
+    });
+  });
+
+  describe("keccak256 hash generation", () => {
+    it("generates valid keccak256 hashes for auto-generated metadata", async () => {
+      const input = createExecutorInput({
+        metadata: {
+          submissionHash: "",
+          scoreHash: "",
+          analystTimestamp: Date.now() - 3600000,
+          auditorTimestamp: Date.now() - 1800000,
+          complianceTimestamp: Date.now() - 900000,
+        },
+      });
+      const config = createTestConfig();
+      const result = await executorAgent(input, config);
+
+      // keccak256 always produces 66 character hex strings (0x + 64 chars)
+      expect(result.prizeMetadata?.submissionHash).toMatch(/^0x[a-f0-9]{64}$/);
+      expect(result.prizeMetadata?.scoreHash).toMatch(/^0x[a-f0-9]{64}$/);
     });
   });
 });

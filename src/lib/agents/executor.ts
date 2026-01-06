@@ -1,3 +1,4 @@
+import { keccak256, toUtf8Bytes, randomBytes } from "ethers";
 import type {
   AgentLog,
   ExecutorInput,
@@ -15,88 +16,118 @@ function logDecision(log: AgentLog): void {
 }
 
 // ===================
-// Mock Blockchain Functions
-// These would be replaced with real ethers.js calls in production
+// Blockchain Configuration
 // ===================
 
-// Simulated transaction counter for unique hashes
-let mockTxCounter = 0;
-
-// Mock flag to simulate blockchain failures
-let mockShouldFailTransaction = false;
-
-export function setMockTransactionFailure(shouldFail: boolean): void {
-  mockShouldFailTransaction = shouldFail;
+/**
+ * Configuration for the Executor agent
+ * Using dependency injection to avoid mutable module-level state
+ */
+export interface ExecutorConfig {
+  distributePrize: (
+    winnerAddress: string,
+    amount: string,
+    metadata: PrizeMetadata
+  ) => Promise<TransactionReceipt>;
 }
 
 /**
- * Generate a mock transaction hash
+ * Hash a string using keccak256 (production-safe cryptographic hash)
  */
-function generateMockTxHash(): string {
-  mockTxCounter++;
-  const timestamp = Date.now().toString(16);
-  const counter = mockTxCounter.toString(16).padStart(8, "0");
-  return `0x${timestamp}${counter}${"0".repeat(64 - timestamp.length - counter.length)}`;
+export function hashString(input: string): string {
+  return keccak256(toUtf8Bytes(input));
 }
 
 /**
- * Generate a mock block hash
+ * Generate a unique transaction hash using random bytes
  */
-function generateMockBlockHash(): string {
-  return `0x${"b".repeat(64)}`;
+function generateTxHash(): string {
+  return keccak256(randomBytes(32));
 }
 
 /**
- * Hash a string using a simple mock hash (in production, use keccak256)
+ * Generate a unique block hash using random bytes
  */
-function mockHash(input: string): string {
-  let hash = 0;
-  for (let i = 0; i < input.length; i++) {
-    const char = input.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash = hash | 0; // Convert to 32-bit integer
-  }
-  const hexHash = Math.abs(hash).toString(16).padStart(64, "0");
-  return `0x${hexHash.slice(0, 64)}`;
+function generateBlockHash(): string {
+  return keccak256(randomBytes(32));
 }
 
 /**
- * Mock smart contract call to distribute prize
- * In production, this would use ethers.js to call BountySwarmVault.distributePrize()
+ * Creates a mock blockchain service for testing
+ * Avoids mutable module-level state by encapsulating state in closure
  */
-async function mockDistributePrize(
-  winnerAddress: string,
-  amount: string,
-  _metadata: PrizeMetadata
-): Promise<TransactionReceipt> {
-  // Simulate network delay (1-2 seconds for block confirmation)
-  await new Promise((resolve) => setTimeout(resolve, 100));
+export function createMockBlockchainService(options: {
+  shouldFail?: boolean;
+  initialBlockNumber?: number;
+} = {}): {
+  distributePrize: ExecutorConfig["distributePrize"];
+  getTransactionCount: () => number;
+} {
+  let txCounter = 0;
+  const baseBlockNumber = options.initialBlockNumber ?? 19000000;
+  const shouldFail = options.shouldFail ?? false;
 
-  if (mockShouldFailTransaction) {
-    throw new Error("Transaction reverted: insufficient funds in vault");
-  }
+  return {
+    distributePrize: async (
+      winnerAddress: string,
+      amount: string,
+      _metadata: PrizeMetadata
+    ): Promise<TransactionReceipt> => {
+      // Simulate network delay
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
-  // Validate address format
-  if (!winnerAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
-    throw new Error("Invalid wallet address format");
-  }
+      if (shouldFail) {
+        throw new Error("Transaction reverted: insufficient funds in vault");
+      }
 
-  // Validate amount
-  const amountNum = parseFloat(amount);
-  if (isNaN(amountNum) || amountNum <= 0) {
-    throw new Error("Invalid amount: must be positive number");
-  }
+      // Validate address format
+      if (!winnerAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+        throw new Error("Invalid wallet address format");
+      }
 
-  // Generate mock transaction receipt
-  const receipt: TransactionReceipt = {
-    transactionHash: generateMockTxHash(),
-    blockNumber: 19000000 + mockTxCounter,
-    blockHash: generateMockBlockHash(),
-    gasUsed: "85000",
-    status: "success",
+      // Validate amount using string comparison to avoid floating-point issues
+      if (!isValidAmount(amount)) {
+        throw new Error("Invalid amount: must be positive number");
+      }
+
+      txCounter++;
+
+      return {
+        transactionHash: generateTxHash(),
+        blockNumber: baseBlockNumber + txCounter,
+        blockHash: generateBlockHash(),
+        gasUsed: "85000",
+        status: "success",
+      };
+    },
+    getTransactionCount: () => txCounter,
   };
+}
 
-  return receipt;
+/**
+ * Default mock service for backward compatibility
+ */
+const defaultMockService = createMockBlockchainService();
+
+/**
+ * Default executor configuration using mock blockchain
+ */
+export const defaultExecutorConfig: ExecutorConfig = {
+  distributePrize: defaultMockService.distributePrize,
+};
+
+/**
+ * Validates amount string without floating-point precision issues
+ * Accepts positive integers and decimals
+ */
+function isValidAmount(amount: string): boolean {
+  if (!amount || amount.trim() === "") return false;
+  // Match positive numbers (integer or decimal)
+  const validPattern = /^(?!0*$)\d+(\.\d+)?$/;
+  if (!validPattern.test(amount)) return false;
+  // Additional check: ensure it's not just zeros after decimal
+  const num = parseFloat(amount);
+  return !isNaN(num) && num > 0;
 }
 
 // ===================
@@ -212,7 +243,10 @@ function validateMetadata(input: ExecutorInput): {
  * - Returns ERROR status with detailed message
  * - Does NOT execute blockchain transaction
  */
-export async function executorAgent(input: ExecutorInput): Promise<ExecutorResponse> {
+export async function executorAgent(
+  input: ExecutorInput,
+  config: ExecutorConfig = defaultExecutorConfig
+): Promise<ExecutorResponse> {
   const timestamp = Date.now();
 
   // Validate input exists
@@ -319,8 +353,8 @@ export async function executorAgent(input: ExecutorInput): Promise<ExecutorRespo
   // Step 4: Prepare prize metadata for blockchain (use hashes from input or generate)
   const prizeMetadata: PrizeMetadata = {
     submissionHash:
-      input.metadata.submissionHash || mockHash(input.paymentRequest.projectUrl),
-    scoreHash: input.metadata.scoreHash || mockHash(input.paymentRequest.winnerId),
+      input.metadata.submissionHash || hashString(input.paymentRequest.projectUrl),
+    scoreHash: input.metadata.scoreHash || hashString(input.paymentRequest.winnerId),
     consensusTime: timestamp,
     formsVerified: true,
     eligibilityVerified: true,
@@ -350,7 +384,7 @@ export async function executorAgent(input: ExecutorInput): Promise<ExecutorRespo
       timestamp,
     });
 
-    const receipt = await mockDistributePrize(
+    const receipt = await config.distributePrize(
       input.paymentRequest.walletAddress,
       input.paymentRequest.amount,
       prizeMetadata
@@ -406,9 +440,7 @@ export const _testHelpers = {
   validateApprovals,
   validatePaymentRequest,
   validateMetadata,
-  mockDistributePrize,
-  mockHash,
-  generateMockTxHash,
-  setMockTransactionFailure,
+  hashString,
+  createMockBlockchainService,
   MAX_PRIZE_AMOUNT,
 };
