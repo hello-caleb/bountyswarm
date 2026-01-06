@@ -113,7 +113,7 @@ function calculateBreakdowns(projects: ProjectSubmission[]): ScoreBreakdown[] {
   });
 
   // Remove submissionTimestamp from final output
-  return breakdowns.map(({ submissionTimestamp, ...rest }) => rest);
+  return breakdowns.map(({ submissionTimestamp: _submissionTimestamp, ...rest }) => rest);
 }
 
 /**

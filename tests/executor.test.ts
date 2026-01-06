@@ -367,4 +367,75 @@ describe("Executor Agent", () => {
       expect(result2.blockNumber).toBeGreaterThan(result1.blockNumber!);
     });
   });
+
+  describe("max amount validation", () => {
+    it("returns ERROR when amount exceeds maximum", async () => {
+      const input = createExecutorInput({
+        paymentRequest: createPaymentRequest({ amount: "200000" }), // Exceeds 100000 limit
+      });
+      const result = await executorAgent(input);
+
+      expect(result.status).toBe("ERROR");
+      expect(result.message).toContain("exceeds maximum");
+    });
+
+    it("allows amounts at maximum limit", async () => {
+      const input = createExecutorInput({
+        paymentRequest: createPaymentRequest({ amount: "100000" }),
+      });
+      const result = await executorAgent(input);
+
+      expect(result.status).toBe("COMPLETE");
+    });
+  });
+
+  describe("metadata validation", () => {
+    it("returns ERROR for invalid submission hash format", async () => {
+      const input = createExecutorInput({
+        metadata: {
+          submissionHash: "invalid-hash",
+          scoreHash: "0x" + "b".repeat(64),
+          analystTimestamp: Date.now() - 3600000,
+          auditorTimestamp: Date.now() - 1800000,
+          complianceTimestamp: Date.now() - 900000,
+        },
+      });
+      const result = await executorAgent(input);
+
+      expect(result.status).toBe("ERROR");
+      expect(result.message).toContain("Invalid submission hash");
+    });
+
+    it("returns ERROR for invalid score hash format", async () => {
+      const input = createExecutorInput({
+        metadata: {
+          submissionHash: "0x" + "a".repeat(64),
+          scoreHash: "not-a-valid-hash",
+          analystTimestamp: Date.now() - 3600000,
+          auditorTimestamp: Date.now() - 1800000,
+          complianceTimestamp: Date.now() - 900000,
+        },
+      });
+      const result = await executorAgent(input);
+
+      expect(result.status).toBe("ERROR");
+      expect(result.message).toContain("Invalid score hash");
+    });
+
+    it("allows empty hashes (will be auto-generated)", async () => {
+      const input = createExecutorInput({
+        metadata: {
+          submissionHash: "",
+          scoreHash: "",
+          analystTimestamp: Date.now() - 3600000,
+          auditorTimestamp: Date.now() - 1800000,
+          complianceTimestamp: Date.now() - 900000,
+        },
+      });
+      const result = await executorAgent(input);
+
+      expect(result.status).toBe("COMPLETE");
+      expect(result.prizeMetadata?.submissionHash).toMatch(/^0x[a-f0-9]+$/);
+    });
+  });
 });

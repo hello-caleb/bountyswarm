@@ -2,7 +2,6 @@ import type {
   AgentLog,
   WinnerProfile,
   AuditorCheck,
-  AuditorCheckType,
   AuditorResponse,
 } from "./types";
 import { RESTRICTED_COUNTRIES, SPONSOR_COMPANIES } from "./types";
