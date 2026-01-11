@@ -113,6 +113,13 @@ export function TransparencyDashboard() {
                             <br />
                             Observe the consensus process in real-time.
                         </p>
+                        <a
+                            href="/create"
+                            className="inline-flex items-center gap-2 mt-4 px-6 py-3 bg-gradient-to-r from-neon-cyan to-neon-purple text-black font-bold rounded-lg hover:opacity-90 transition-opacity"
+                        >
+                            Start Interactive Demo
+                            <span>→</span>
+                        </a>
                     </div>
                     <div className="text-right flex flex-col items-end gap-2">
                         <div className="flex items-center gap-2 text-green-400 text-xs uppercase tracking-widest bg-green-900/20 px-3 py-1 rounded-full border border-green-900/50">
