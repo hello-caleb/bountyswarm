@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { AgentSwarm } from '@/components/AgentSwarm';
 import { ConsensusLog } from '@/components/ConsensusLog';
 import { useOrganizer, AgentStatus } from '@/context/OrganizerContext';
+import { OrganizerSteps } from '@/components/OrganizerSteps';
 
 export default function VerifyPage() {
     const router = useRouter();
@@ -84,19 +85,17 @@ export default function VerifyPage() {
         <div className="min-h-screen bg-[#0f111a] text-white p-6 font-sans">
             <div className="max-w-5xl mx-auto space-y-8">
                 {/* Header / Breadcrumb */}
-                <div className="flex justify-between items-center text-sm text-gray-500 mb-8">
-                    <div className="flex gap-4">
-                        <span>Create</span>
-                        <span>→</span>
-                        <span>Submit</span>
-                        <span>→</span>
-                        <span className="text-neon-cyan font-bold">Verify</span>
-                        <span>→</span>
-                        <span>Complete</span>
+                <div className="flex justify-between items-center text-sm mb-8">
+                    <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-full px-6 py-2">
+                        <OrganizerSteps currentStep="verify" />
                     </div>
-                    <div className="animate-pulse flex items-center gap-2">
-                        <span className="w-2 h-2 bg-neon-green rounded-full"></span>
-                        <span>Live Consensus Active</span>
+
+                    <div className="flex items-center gap-3 bg-neon-green/10 px-4 py-2 rounded-full border border-neon-green/30 shadow-[0_0_15px_rgba(0,255,100,0.1)]">
+                        <span className="relative flex h-3 w-3">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon-green opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-neon-green"></span>
+                        </span>
+                        <span className="text-neon-green font-bold tracking-wide text-xs uppercase">Live Consensus Active</span>
                     </div>
                 </div>
 
@@ -135,7 +134,7 @@ export default function VerifyPage() {
                         <ConsensusLog logs={logs} />
                     </div>
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }

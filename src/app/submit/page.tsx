@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useOrganizer } from '@/context/OrganizerContext';
+import { OrganizerSteps } from '@/components/OrganizerSteps';
 
 export default function SubmitPage() {
     const router = useRouter();
@@ -49,14 +50,10 @@ export default function SubmitPage() {
             <div className="max-w-xl w-full">
 
                 {/* Breadcrumb */}
-                <div className="flex gap-4 text-sm text-gray-500 mb-8 justify-center">
-                    <span>Create</span>
-                    <span>→</span>
-                    <span className="text-neon-cyan font-bold">Submit</span>
-                    <span>→</span>
-                    <span>Verify</span>
-                    <span>→</span>
-                    <span>Complete</span>
+                <div className="flex justify-center mb-8">
+                    <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-full px-8 py-3 shadow-[0_4px_20px_rgba(0,0,0,0.2)]">
+                        <OrganizerSteps currentStep="submit" />
+                    </div>
                 </div>
 
                 <div className="living-glass-panel p-8">

@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useOrganizer } from '@/context/OrganizerContext';
+import { OrganizerSteps } from '@/components/OrganizerSteps';
 
 export default function CreatePage() {
     const router = useRouter();
@@ -27,39 +28,30 @@ export default function CreatePage() {
             <div className="w-full max-w-lg space-y-8">
 
                 {/* Header/Nav - Centered above card */}
-                <div className="flex flex-col items-center gap-4 text-center">
-                    <h1 className="text-4xl font-extrabold tracking-tighter">
+                {/* Header/Nav - Centered above card */}
+                <div className="flex flex-col items-center gap-6 text-center">
+                    <h1 className="text-5xl font-extrabold tracking-tighter mb-2">
                         Bounty<span className="text-transparent bg-clip-text bg-gradient-to-r from-neon-cyan to-neon-purple">Swarm</span>
                     </h1>
-                    <p className="text-gray-400 text-sm">Autonomous prize distribution in under 60 seconds.</p>
 
-                    <div className="flex items-center gap-2 text-green-400 text-xs uppercase tracking-widest bg-green-900/20 px-3 py-1 rounded-full border border-green-900/50 mb-4">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
-                        Sepolia Testnet Live
-                    </div>
-
-                    <div className="flex gap-4 text-sm text-gray-500 justify-center w-full">
-                        <span className="text-neon-cyan font-bold transition-colors">Create</span>
-                        <span>→</span>
-                        <span className="hover:text-gray-300 transition-colors">Submit</span>
-                        <span>→</span>
-                        <span className="hover:text-gray-300 transition-colors">Verify</span>
-                        <span>→</span>
-                        <span className="hover:text-gray-300 transition-colors">Complete</span>
+                    <div className="w-full flex justify-center mb-4">
+                        <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-full px-8 py-3 shadow-[0_4px_20px_rgba(0,0,0,0.2)]">
+                            <OrganizerSteps currentStep="create" />
+                        </div>
                     </div>
                 </div>
 
                 {/* Card */}
-                <div className="living-glass-panel p-8 w-full shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10 relative z-10 bg-[#131620]/80 backdrop-blur-xl rounded-2xl">
-                    <h2 className="text-3xl font-bold mb-2 text-center">Create New Bounty</h2>
-                    <p className="text-gray-400 mb-8 text-center">Setup a prize pool for autonomous distribution.</p>
+                <div className="living-glass-panel p-10 w-full shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10 relative z-10 bg-[#131620]/90 backdrop-blur-2xl rounded-3xl">
+                    <h2 className="text-3xl font-bold mb-3 text-center text-white">Definition Phase</h2>
+                    <p className="text-gray-400 mb-10 text-center text-lg">Initialize the bounty parameters for the swarm.</p>
 
                     <form onSubmit={handleSubmit} className="space-y-8">
                         <div>
-                            <label className="block text-xs uppercase tracking-widest text-gray-500 mb-2 font-bold ml-1">Bounty Name</label>
+                            <label className="block text-xs uppercase tracking-widest text-[#00f3ff] mb-3 font-bold ml-1">Bounty Name</label>
                             <input
                                 type="text"
-                                className="w-full bg-black/50 border-2 border-white/5 rounded-xl p-4 text-lg text-white focus:border-neon-cyan focus:shadow-[0_0_20px_rgba(0,243,255,0.2)] outline-none transition-all duration-300 placeholder-gray-700"
+                                className="w-full bg-black/60 border border-white/10 rounded-xl p-5 text-xl text-white focus:border-neon-cyan focus:shadow-[0_0_30px_rgba(0,243,255,0.15)] outline-none transition-all duration-300 placeholder-gray-600 focus:bg-black/80"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                                 placeholder="e.g. Global AI Hackathon"
@@ -67,38 +59,45 @@ export default function CreatePage() {
                         </div>
 
                         <div>
-                            <label className="block text-xs uppercase tracking-widest text-gray-500 mb-2 font-bold ml-1">Prize Amount</label>
-                            <div className="relative">
+                            <label className="block text-xs uppercase tracking-widest text-[#00f3ff] mb-3 font-bold ml-1">Prize Amount</label>
+                            <div className="relative group">
                                 <input
                                     type="number"
-                                    className="w-full bg-black/50 border-2 border-white/5 rounded-xl p-4 text-lg text-white font-mono focus:border-neon-cyan focus:shadow-[0_0_20px_rgba(0,243,255,0.2)] outline-none transition-all duration-300"
+                                    className="w-full bg-black/60 border border-white/10 rounded-xl p-5 text-xl text-white font-mono focus:border-neon-cyan focus:shadow-[0_0_30px_rgba(0,243,255,0.15)] outline-none transition-all duration-300 focus:bg-black/80"
                                     value={amount}
                                     onChange={(e) => setAmount(Number(e.target.value))}
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold tracking-wider">MNEE</span>
+                                <span className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-500 font-bold tracking-wider group-focus-within:text-neon-cyan transition-colors">MNEE</span>
                             </div>
                         </div>
 
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="w-full bg-[#00f3ff] hover:bg-[#00c2cc] text-black font-black text-xl py-5 rounded-xl transition-all duration-300 shadow-[0_0_30px_rgba(0,243,255,0.4)] hover:shadow-[0_0_50px_rgba(0,243,255,0.6)] hover:-translate-y-1 flex justify-center items-center gap-2 disabled:opacity-50 disabled:grayscale transform active:scale-[0.98]"
-                        >
-                            {isLoading ? (
-                                <div className="flex items-center gap-2">
-                                    <svg className="animate-spin h-6 w-6 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    <span>Creating...</span>
+                        <div className="pt-4">
+                            <button
+                                type="submit"
+                                disabled={isLoading}
+                                className="group relative w-full overflow-hidden rounded-xl p-[2px] focus:outline-none transition-all active:scale-[0.99]"
+                            >
+                                <span className="absolute inset-0 bg-gradient-to-r from-neon-cyan via-purple-500 to-neon-cyan opacity-70 group-hover:opacity-100 transition-opacity duration-300 animate-gradient-x" />
+                                <div className="relative bg-black h-full w-full rounded-xl flex items-center justify-center py-5 transition-all duration-300 group-hover:bg-opacity-80">
+                                    {isLoading ? (
+                                        <div className="flex items-center gap-3">
+                                            <svg className="animate-spin h-5 w-5 text-[#00f3ff]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            <span className="font-bold text-white tracking-wide">INITIALIZING SWARM...</span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-3">
+                                            <span className="font-bold text-lg text-white group-hover:text-[#00f3ff] transition-colors tracking-wide">
+                                                LOCK PARAMETERS & CONTINUE
+                                            </span>
+                                            <span className="text-xl text-[#00f3ff] group-hover:translate-x-1 transition-transform">→</span>
+                                        </div>
+                                    )}
                                 </div>
-                            ) : (
-                                <>
-                                    CONTINUE TO SELECTION
-                                    <span className="text-2xl">→</span>
-                                </>
-                            )}
-                        </button>
+                            </button>
+                        </div>
                     </form>
                 </div>
 
