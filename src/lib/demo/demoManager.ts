@@ -4,13 +4,21 @@ import { VAULT_ADDRESS, SEPOLIA_RPC_URL, VAULT_ABI, ETHERSCAN_BASE } from '@/lib
 
 const SLEEP = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Demo prize recipient (a test address - could be configured)
-const DEMO_WINNER_ADDRESS = "0x75d4Ab5bFB82e33594f12f47AFb11195B5812DA6"; // Deployer for demo
-const DEMO_PRIZE_AMOUNT = "100"; // 100 MNEE tokens
+// Demo prize recipient (defaults if not provided)
+const DEFAULT_WINNER = "0x75d4Ab5bFB82e33594f12f47AFb11195B5812DA6";
+const DEFAULT_AMOUNT = "100";
 const DEMO_SUBMISSION_HASH = "ipfs://QmBountySwarm127";
 const DEMO_SCORE_HASH = "ipfs://QmScore98of100";
 
-export async function runDemoScenario() {
+interface DemoConfig {
+    winnerAddress?: string;
+    prizeAmount?: string;
+}
+
+export async function runDemoScenario(config: DemoConfig = {}) {
+    const winnerAddress = config.winnerAddress || DEFAULT_WINNER;
+    const prizeAmount = config.prizeAmount || DEFAULT_AMOUNT;
+
     // 1. Scout
     broadcastStatus('Scout', 'THINKING', 'Scanning submission channels...');
     await SLEEP(2000);
@@ -40,7 +48,7 @@ export async function runDemoScenario() {
 
     try {
         // Execute real transaction on Sepolia
-        const txHash = await executeDistributePrize();
+        const txHash = await executeDistributePrize(winnerAddress, prizeAmount);
         const shortHash = `${txHash.slice(0, 6)}...${txHash.slice(-4)}`;
         const etherscanLink = `${ETHERSCAN_BASE}/tx/${txHash}`;
 
@@ -56,7 +64,7 @@ export async function runDemoScenario() {
     }
 }
 
-async function executeDistributePrize(): Promise<string> {
+async function executeDistributePrize(winnerAddress: string, amountStr: string): Promise<string> {
     const privateKey = process.env.PRIVATE_KEY;
     if (!privateKey) {
         throw new Error('PRIVATE_KEY not configured');
@@ -73,13 +81,13 @@ async function executeDistributePrize(): Promise<string> {
     const vault = new ethers.Contract(VAULT_ADDRESS, VAULT_ABI, signer);
 
     // Parse amount (18 decimals)
-    const parsedAmount = ethers.parseUnits(DEMO_PRIZE_AMOUNT, 18);
+    const parsedAmount = ethers.parseUnits(amountStr, 18);
 
-    console.log(`[EXECUTOR] Distributing ${DEMO_PRIZE_AMOUNT} MNEE to ${DEMO_WINNER_ADDRESS}`);
+    console.log(`[EXECUTOR] Distributing ${amountStr} MNEE to ${winnerAddress}`);
 
     // Execute the transaction
     const tx = await vault.distributePrize(
-        DEMO_WINNER_ADDRESS,
+        winnerAddress,
         parsedAmount,
         DEMO_SUBMISSION_HASH,
         DEMO_SCORE_HASH

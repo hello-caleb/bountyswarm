@@ -13,19 +13,12 @@ export default function VerifyPage() {
     const [progress, setProgress] = useState(0);
 
     // Calculate progress based on agents
+    // Calculate progress based on agents
     useEffect(() => {
         const approvedCount = verification.agents.filter(a => a.status === 'SUCCESS').length;
         // 5 agents total = 20% each
         setProgress(approvedCount * 20);
-
-        // Auto-navigate when complete
-        if (approvedCount === 5) {
-            setTimeout(() => {
-                setVerificationStatus('complete');
-                router.push('/complete');
-            }, 3000); // 3s delay to admire the all-green state
-        }
-    }, [verification.agents, router, setVerificationStatus]);
+    }, [verification.agents]);
 
     useEffect(() => {
         // Start listening to SSE stream
@@ -59,13 +52,9 @@ export default function VerifyPage() {
                     const time = new Date().toLocaleTimeString();
                     setLogs(prev => [`[${time}] ${data.agent}: ${data.message}`, ...prev]);
 
-                    // Capture Tx Hash logic is inside Context/Agents usually, 
-                    // but for now we trust the stream or check data.txHash if available
-                    // (Demo manager broadcasts txHash in the 'data' payload for Executor)
-                    if (data.data?.txHash || (data.agent === 'Executor' && data.message.includes('Tx Confirmed'))) {
-                        // Extract hash from message if needed, or use payload
-                        // Simulation: just ensuring we have one for the success page
-                        setTxHash("0xbb76a02919c629528fAd8C4F8f516a7f85B17f91");
+                    // Capture Tx Hash from Payload (Real Truth from Blockchain)
+                    if (data.agent === 'Executor' && data.data?.txHash) {
+                        setTxHash(data.data.txHash);
                     }
                 }
             } catch (err) {
@@ -75,9 +64,21 @@ export default function VerifyPage() {
 
         return () => {
             eventSource.close();
-            setVerificationStatus('idle');
         };
     }, []);
+
+    // Strict Navigation Logic: Wait for All Agents + Tx Hash
+    useEffect(() => {
+        const allAgentsSuccess = verification.agents.every(a => a.status === 'SUCCESS');
+        const hasTxHash = !!verification.txHash;
+
+        if (allAgentsSuccess && hasTxHash) {
+            setTimeout(() => {
+                setVerificationStatus('complete');
+                router.push('/complete');
+            }, 2000);
+        }
+    }, [verification.agents, verification.txHash, router, setVerificationStatus]);
 
     return (
         <div className="min-h-screen bg-[#0f111a] text-white p-6 font-sans">

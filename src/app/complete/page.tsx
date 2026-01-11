@@ -6,7 +6,7 @@ import { useOrganizer } from '@/context/OrganizerContext';
 
 export default function CompletePage() {
     const { bounty, winner, verification } = useOrganizer();
-    const txHash = verification.txHash || "0xbb76a02919c629528fAd8C4F8f516a7f85B17f91"; // Fallback for dev
+    const txHash = verification.txHash;
 
     return (
         <div className="min-h-screen bg-[#0f111a] text-white p-6 font-sans flex items-center justify-center">
@@ -35,7 +35,7 @@ export default function CompletePage() {
                                 <div>
                                     <div className="text-gray-500 uppercase text-xs mb-1">To Winner</div>
                                     <div className="font-mono text-neon-cyan truncate" title={winner.address}>
-                                        {winner.address || "0x75d4...12DA6"}
+                                        {winner.address.slice(0, 6)}...{winner.address.slice(-4)}
                                     </div>
                                 </div>
                                 <div className="text-right">
@@ -45,7 +45,9 @@ export default function CompletePage() {
                                 <div className="col-span-2 pt-4 border-t border-white/10 mt-2">
                                     <div className="text-gray-500 uppercase text-xs mb-1">Transaction Hash</div>
                                     <div className="flex justify-between items-center">
-                                        <span className="font-mono text-gray-300 text-xs truncate mr-4">{txHash}</span>
+                                        <span className="font-mono text-gray-300 text-xs truncate mr-4">
+                                            {txHash ? `${txHash.slice(0, 10)}...${txHash.slice(-10)}` : 'Generating...'}
+                                        </span>
                                         <a
                                             href={`https://sepolia.etherscan.io/tx/${txHash}`}
                                             target="_blank"

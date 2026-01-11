@@ -70,6 +70,25 @@ export function OrganizerProvider({ children }: { children: ReactNode }) {
         verificationCriteria: '1. Code must compile.\n2. Must use MNEE token.\n3. Must include unit tests.'
     });
 
+    // Hydrate from Storage on Mount
+    React.useEffect(() => {
+        const storedBounty = sessionStorage.getItem('bs_bounty');
+        const storedWinner = sessionStorage.getItem('bs_winner');
+        if (storedBounty) setBountyState(JSON.parse(storedBounty));
+        if (storedWinner) setWinnerState(JSON.parse(storedWinner));
+    }, []);
+
+    // Persist to Storage
+    React.useEffect(() => {
+        sessionStorage.setItem('bs_bounty', JSON.stringify(bounty));
+    }, [bounty]);
+
+    React.useEffect(() => {
+        sessionStorage.setItem('bs_winner', JSON.stringify(winner));
+    }, [winner]);
+
+
+
     const [verification, setVerification] = useState<{
         status: 'idle' | 'in-progress' | 'complete';
         agents: AgentState[];
