@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "../styles/living-glass.css";
 
 export const metadata: Metadata = {
   title: "BountySwarm",

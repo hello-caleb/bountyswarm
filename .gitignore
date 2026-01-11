@@ -34,6 +34,11 @@ yarn-error.log*
 coverage/
 .nyc_output/
 
+# Hardhat
+artifacts/
+cache/
+typechain-types/
+
 # Turbo
 .turbo/
 

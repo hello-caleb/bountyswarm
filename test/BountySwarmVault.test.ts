@@ -84,6 +84,11 @@ describe("BountySwarmVault", function () {
             await expect(vault.connect(agentSwarm).distributePrize(ethers.ZeroAddress, PRIZE_AMOUNT, "", ""))
                 .to.be.revertedWithCustomError(vault, "ZeroAddress");
         });
+
+        it("Should revert if amount is zero", async function () {
+            await expect(vault.connect(agentSwarm).distributePrize(winner.address, 0, "", ""))
+                .to.be.revertedWithCustomError(vault, "ZeroAmount");
+        });
     });
 
     describe("Administration", function () {

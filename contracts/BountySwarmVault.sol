@@ -15,6 +15,7 @@ contract BountySwarmVault is Ownable, ReentrancyGuard {
 
     error OnlyAgentSwarm();
     error ZeroAddress();
+    error ZeroAmount();
     error InsufficientBalance();
 
     constructor(address _mneeToken, address _agentSwarm) Ownable(msg.sender) {
@@ -42,7 +43,8 @@ contract BountySwarmVault is Ownable, ReentrancyGuard {
         string calldata scoreHash
     ) external onlySwarm nonReentrant {
         if (winner == address(0)) revert ZeroAddress();
-        
+        if (amount == 0) revert ZeroAmount();
+
         uint256 balance = mneeToken.balanceOf(address(this));
         if (balance < amount) revert InsufficientBalance();
 
