@@ -1,15 +1,16 @@
+import pkg from "hardhat";
+const { ethers } = pkg;
 import { expect } from "chai";
-import { ethers } from "hardhat";
-import { BountySwarmVault, MockMNEE } from "../typechain-types";
-import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
+import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
+import type { Contract } from "ethers";
 
 describe("BountySwarmVault", function () {
-    let vault: BountySwarmVault;
-    let token: MockMNEE;
-    let owner: SignerWithAddress;
-    let agentSwarm: SignerWithAddress;
-    let winner: SignerWithAddress;
-    let stranger: SignerWithAddress;
+    let vault: Contract;
+    let token: Contract;
+    let owner: HardhatEthersSigner;
+    let agentSwarm: HardhatEthersSigner;
+    let winner: HardhatEthersSigner;
+    let stranger: HardhatEthersSigner;
 
     const PRIZE_AMOUNT = ethers.parseEther("1000");
 
