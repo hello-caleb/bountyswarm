@@ -322,6 +322,7 @@ export interface RetryConfig {
   maxRetries: number;
   retryDelayMs: number;
   waitingTimeoutMs: number;
+  globalTimeoutMs: number; // Global timeout for the entire orchestration
 }
 
 // Default retry configuration
@@ -329,7 +330,16 @@ export const DEFAULT_RETRY_CONFIG: RetryConfig = {
   maxRetries: 3,
   retryDelayMs: 5000,
   waitingTimeoutMs: 300000, // 5 minutes
+  globalTimeoutMs: 600000, // 10 minutes
 };
+
+// Error types for better error handling
+export type ConsensusErrorType =
+  | "TIMEOUT"
+  | "NETWORK_ERROR"
+  | "VALIDATION_ERROR"
+  | "INVALID_OVERRIDE"
+  | "UNKNOWN";
 
 // Human override request
 export interface OverrideRequest {
@@ -380,6 +390,9 @@ export interface ConsensusResponse {
   canProceedToPayment: boolean;
   blockingAgents: AgentName[];
   waitingAgents: AgentName[];
+  errorAgents: AgentName[];
   override?: OverrideRequest;
   timestamp: number;
+  errorType?: ConsensusErrorType;
+  session?: ConsensusSession; // Included for retry/resume support
 }

@@ -19,6 +19,7 @@ import type {
   AuditorResponse,
   ComplianceResponse,
   ExecutorResponse,
+  ConsensusErrorType,
 } from "./types";
 import { DEFAULT_RETRY_CONFIG } from "./types";
 import { scoutAgent, type ScoutConfig, type ScoutResponse } from "./scout";
@@ -30,6 +31,82 @@ import { executorAgent, type ExecutorConfig, hashString } from "./executor";
 // Prize amounts in MNEE
 const TRACK_WINNER_PRIZE = "2500";
 const RUNNER_UP_PRIZE = "1250";
+
+// Prerequisite agents that must approve before executor can run
+const EXECUTOR_PREREQUISITES: AgentName[] = ["scout", "analyst", "auditor", "compliance"];
+
+/**
+ * Wraps a promise with a timeout
+ * Throws TimeoutError if the promise doesn't resolve within the specified time
+ */
+class TimeoutError extends Error {
+  constructor(message: string, public timeoutMs: number) {
+    super(message);
+    this.name = "TimeoutError";
+  }
+}
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  errorMessage: string
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout>;
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new TimeoutError(errorMessage, timeoutMs));
+    }, timeoutMs);
+  });
+
+  try {
+    const result = await Promise.race([promise, timeoutPromise]);
+    clearTimeout(timeoutId!);
+    return result;
+  } catch (error) {
+    clearTimeout(timeoutId!);
+    throw error;
+  }
+}
+
+/**
+ * Validates consensus input
+ */
+function validateConsensusInput(input: ConsensusInput): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  if (!input) {
+    errors.push("Consensus input is required");
+    return { valid: false, errors };
+  }
+
+  if (!input.winner) {
+    errors.push("Winner data is required");
+  } else {
+    if (!input.winner.projectId) errors.push("Winner projectId is required");
+    if (!input.winner.walletAddress) errors.push("Winner walletAddress is required");
+  }
+
+  if (!input.winnerProfile) {
+    errors.push("Winner profile is required");
+  } else {
+    if (!input.winnerProfile.id) errors.push("Winner profile id is required");
+  }
+
+  if (!input.complianceData) {
+    errors.push("Compliance data is required");
+  } else {
+    if (!input.complianceData.winnerId) errors.push("Compliance winnerId is required");
+  }
+
+  if (!input.projectSubmission) {
+    errors.push("Project submission is required");
+  } else {
+    if (!input.projectSubmission.id) errors.push("Project submission id is required");
+  }
+
+  return { valid: errors.length === 0, errors };
+}
 
 /**
  * Configuration for the Consensus Orchestrator
@@ -138,11 +215,20 @@ function calculateConsensusState(votes: Record<AgentName, AgentVote>): Consensus
 }
 
 /**
- * Get agents that are blocking consensus
+ * Get agents that are blocking consensus (REJECTED or ERROR)
  */
 function getBlockingAgents(votes: Record<AgentName, AgentVote>): AgentName[] {
   return Object.values(votes)
     .filter((v) => v.status === "REJECTED" || v.status === "ERROR")
+    .map((v) => v.agent);
+}
+
+/**
+ * Get agents that have errors (for retry support)
+ */
+function getErrorAgents(votes: Record<AgentName, AgentVote>): AgentName[] {
+  return Object.values(votes)
+    .filter((v) => v.status === "ERROR")
     .map((v) => v.agent);
 }
 
@@ -443,13 +529,67 @@ async function runExecutorPhase(
 }
 
 /**
+ * Validates an override request to ensure it doesn't create invalid state
+ */
+function validateOverride(
+  session: ConsensusSession,
+  override: OverrideRequest
+): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  if (!override.adminId) {
+    errors.push("Admin ID is required for override");
+  }
+
+  if (!override.reason) {
+    errors.push("Reason is required for override");
+  }
+
+  // Check if trying to approve executor without prerequisites
+  if (override.agentOverrides.executor === "APPROVED") {
+    const willBeApproved = (agent: AgentName): boolean => {
+      // Check if override sets it to approved OR it's already approved in session
+      return (
+        override.agentOverrides[agent] === "APPROVED" ||
+        session.votes[agent].status === "APPROVED"
+      );
+    };
+
+    const missingPrereqs = EXECUTOR_PREREQUISITES.filter(
+      (agent) => !willBeApproved(agent)
+    );
+
+    if (missingPrereqs.length > 0) {
+      errors.push(
+        `Cannot override executor to APPROVED without prerequisite approvals: ${missingPrereqs.join(", ")}`
+      );
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
  * Apply a human override to the consensus session
+ * Validates that the override doesn't create an invalid state
  */
 export function applyOverride(
   session: ConsensusSession,
   override: OverrideRequest,
   config?: ConsensusConfig
-): ConsensusSession {
+): { success: boolean; session: ConsensusSession; errors?: string[] } {
+  // Validate the override request
+  const validation = validateOverride(session, override);
+  if (!validation.valid) {
+    addLog(
+      session,
+      "OVERRIDE_REJECTED",
+      session.state,
+      `Override rejected: ${validation.errors.join("; ")}`
+    );
+    return { success: false, session, errors: validation.errors };
+  }
+
   addLog(
     session,
     "OVERRIDE_APPLIED",
@@ -460,9 +600,10 @@ export function applyOverride(
   session.override = override;
   session.state = "OVERRIDE";
 
-  // Apply individual agent overrides
-  for (const [agentStr, status] of Object.entries(override.agentOverrides)) {
-    const agent = agentStr as AgentName;
+  // Apply individual agent overrides using safe iteration
+  const agentNames: AgentName[] = ["scout", "analyst", "auditor", "compliance", "executor"];
+  for (const agent of agentNames) {
+    const status = override.agentOverrides[agent];
     if (status && session.votes[agent]) {
       session.votes[agent].status = status;
       session.votes[agent].message = `Override by admin: ${override.reason}`;
@@ -471,7 +612,7 @@ export function applyOverride(
   }
 
   config?.onStateChange?.(session);
-  return session;
+  return { success: true, session };
 }
 
 /**
@@ -527,6 +668,147 @@ export async function retryWaitingAgent(
 }
 
 /**
+ * Retry an agent that errored (for transient network failures)
+ * Unlike retryWaitingAgent, this resets the error and retries
+ */
+export async function retryErrorAgent(
+  session: ConsensusSession,
+  agent: AgentName,
+  input: ConsensusInput,
+  config?: ConsensusConfig
+): Promise<boolean> {
+  const vote = session.votes[agent];
+  const retryConfig = config?.retryConfig ?? DEFAULT_RETRY_CONFIG;
+
+  if (vote.status !== "ERROR") {
+    addLog(
+      session,
+      "RETRY_SKIPPED",
+      session.state,
+      `Cannot retry ${agent}: status is ${vote.status}, not ERROR`,
+      agent
+    );
+    return false;
+  }
+
+  if (vote.retryCount >= retryConfig.maxRetries) {
+    addLog(
+      session,
+      "RETRY_EXHAUSTED",
+      session.state,
+      `Max retries (${retryConfig.maxRetries}) reached for ${agent}`,
+      agent
+    );
+    return false;
+  }
+
+  // Reset to PENDING before retry
+  vote.status = "PENDING";
+  vote.retryCount++;
+  addLog(
+    session,
+    "ERROR_RETRY_ATTEMPT",
+    session.state,
+    `Error retry attempt ${vote.retryCount}/${retryConfig.maxRetries}`,
+    agent
+  );
+
+  // Wait before retry (exponential backoff)
+  const backoffMs = retryConfig.retryDelayMs * Math.pow(2, vote.retryCount - 1);
+  await new Promise((resolve) => setTimeout(resolve, backoffMs));
+
+  // Re-run the appropriate agent
+  switch (agent) {
+    case "scout":
+      return runScoutPhase(session, config);
+    case "analyst":
+      // Analyst needs project submission
+      const result = await runAnalystPhase(session, input.projectSubmission, config);
+      return result !== null;
+    case "auditor":
+      return runAuditorPhase(session, input.winnerProfile, config);
+    case "compliance":
+      return runCompliancePhase(session, input.complianceData, config);
+    case "executor":
+      const execResult = await runExecutorPhase(session, input.winner, config);
+      return execResult !== null;
+    default:
+      return false;
+  }
+}
+
+/**
+ * Resume consensus after an override has been applied
+ * Runs remaining agents (executor) if all prerequisites are now approved
+ */
+export async function resumeAfterOverride(
+  session: ConsensusSession,
+  input: ConsensusInput,
+  config?: ConsensusConfig
+): Promise<ConsensusResponse> {
+  const timestamp = Date.now();
+
+  if (session.state !== "OVERRIDE") {
+    addLog(
+      session,
+      "RESUME_SKIPPED",
+      session.state,
+      "Cannot resume: session is not in OVERRIDE state"
+    );
+    return createResponse(session, timestamp);
+  }
+
+  // Check if all prerequisites are now approved
+  const allPrereqsApproved = EXECUTOR_PREREQUISITES.every(
+    (agent) => session.votes[agent].status === "APPROVED"
+  );
+
+  if (!allPrereqsApproved) {
+    const missing = EXECUTOR_PREREQUISITES.filter(
+      (agent) => session.votes[agent].status !== "APPROVED"
+    );
+    addLog(
+      session,
+      "RESUME_BLOCKED",
+      session.state,
+      `Cannot execute: missing approvals from ${missing.join(", ")}`
+    );
+    return createResponse(session, timestamp);
+  }
+
+  // If executor hasn't run yet, run it now
+  if (session.votes.executor.status !== "APPROVED") {
+    addLog(
+      session,
+      "RESUME_EXECUTOR",
+      "IN_PROGRESS",
+      "Running executor after override"
+    );
+
+    const executorResponse = await runExecutorPhase(session, input.winner, config);
+    if (executorResponse) {
+      session.completedAt = Date.now();
+      session.state = "APPROVED";
+      addLog(session, "CONSENSUS_COMPLETE", "APPROVED", "All agents approved after override, payment executed");
+    }
+  }
+
+  return createResponse(session, timestamp);
+}
+
+/**
+ * Check if session has timed out based on waitingTimeoutMs
+ */
+export function isSessionTimedOut(
+  session: ConsensusSession,
+  config?: ConsensusConfig
+): boolean {
+  const retryConfig = config?.retryConfig ?? DEFAULT_RETRY_CONFIG;
+  const elapsed = Date.now() - session.startedAt;
+  return elapsed > retryConfig.waitingTimeoutMs;
+}
+
+/**
  * Main Consensus Orchestrator
  *
  * Coordinates all 5 agents to reach consensus on a prize payment:
@@ -546,8 +828,32 @@ export async function consensusOrchestrator(
   input: ConsensusInput,
   config?: ConsensusConfig
 ): Promise<ConsensusResponse> {
-  const sessionId = generateSessionId(input.winner.projectId);
   const timestamp = Date.now();
+  const retryConfig = config?.retryConfig ?? DEFAULT_RETRY_CONFIG;
+
+  // Validate input before starting
+  const validation = validateConsensusInput(input);
+  if (!validation.valid) {
+    // Create error session for invalid input
+    const errorSession: ConsensusSession = {
+      sessionId: `error-${timestamp}`,
+      winnerId: input?.winner?.projectId ?? "unknown",
+      projectId: input?.winner?.projectId ?? "unknown",
+      state: "ERROR",
+      votes: createInitialVotes(),
+      startedAt: timestamp,
+      logs: [],
+    };
+    addLog(
+      errorSession,
+      "VALIDATION_FAILED",
+      "ERROR",
+      `Invalid input: ${validation.errors.join("; ")}`
+    );
+    return createResponse(errorSession, timestamp, "VALIDATION_ERROR");
+  }
+
+  const sessionId = generateSessionId(input.winner.projectId);
 
   // Initialize session
   const session: ConsensusSession = {
@@ -559,6 +865,35 @@ export async function consensusOrchestrator(
     startedAt: timestamp,
     logs: [],
   };
+
+  // Wrap the entire orchestration with a global timeout
+  try {
+    return await withTimeout(
+      runConsensusPhases(session, input, config),
+      retryConfig.globalTimeoutMs,
+      `Consensus orchestration timed out after ${retryConfig.globalTimeoutMs}ms`
+    );
+  } catch (error) {
+    if (error instanceof TimeoutError) {
+      session.state = "ERROR";
+      addLog(session, "GLOBAL_TIMEOUT", "ERROR", error.message);
+      return createResponse(session, timestamp, "TIMEOUT");
+    }
+    // Re-throw unexpected errors
+    throw error;
+  }
+}
+
+/**
+ * Internal function that runs all consensus phases
+ * Separated to allow wrapping with timeout
+ */
+async function runConsensusPhases(
+  session: ConsensusSession,
+  input: ConsensusInput,
+  config?: ConsensusConfig
+): Promise<ConsensusResponse> {
+  const timestamp = session.startedAt;
 
   addLog(session, "SESSION_START", "IN_PROGRESS", `Starting consensus for winner ${input.winner.projectId}`);
   session.state = "IN_PROGRESS";
@@ -602,12 +937,11 @@ export async function consensusOrchestrator(
   }
 
   // Phase 5: Executor (only if all previous phases approved)
-  if (
-    session.votes.scout.status === "APPROVED" &&
-    session.votes.analyst.status === "APPROVED" &&
-    session.votes.auditor.status === "APPROVED" &&
-    session.votes.compliance.status === "APPROVED"
-  ) {
+  const allPrereqsApproved = EXECUTOR_PREREQUISITES.every(
+    (agent) => session.votes[agent].status === "APPROVED"
+  );
+
+  if (allPrereqsApproved) {
     const executorResponse = await runExecutorPhase(session, input.winner, config);
     if (executorResponse) {
       session.completedAt = Date.now();
@@ -621,9 +955,15 @@ export async function consensusOrchestrator(
 /**
  * Create the final response from a session
  */
-function createResponse(session: ConsensusSession, timestamp: number): ConsensusResponse {
+function createResponse(
+  session: ConsensusSession,
+  timestamp: number,
+  errorType?: ConsensusErrorType,
+  includeSession = false
+): ConsensusResponse {
   const blockingAgents = getBlockingAgents(session.votes);
   const waitingAgents = getWaitingAgents(session.votes);
+  const errorAgents = getErrorAgents(session.votes);
 
   let message: string;
   switch (session.state) {
@@ -637,7 +977,7 @@ function createResponse(session: ConsensusSession, timestamp: number): Consensus
       message = `Consensus waiting on: ${waitingAgents.join(", ")}`;
       break;
     case "ERROR":
-      message = `Consensus error: ${blockingAgents.join(", ")} reported errors`;
+      message = `Consensus error: ${errorAgents.join(", ")} reported errors`;
       break;
     case "OVERRIDE":
       message = `Consensus overridden by admin: ${session.override?.reason}`;
@@ -646,7 +986,7 @@ function createResponse(session: ConsensusSession, timestamp: number): Consensus
       message = "Consensus in progress";
   }
 
-  return {
+  const response: ConsensusResponse = {
     sessionId: session.sessionId,
     winnerId: session.winnerId,
     state: session.state,
@@ -655,9 +995,21 @@ function createResponse(session: ConsensusSession, timestamp: number): Consensus
     canProceedToPayment: session.state === "APPROVED" || session.state === "OVERRIDE",
     blockingAgents,
     waitingAgents,
+    errorAgents,
     override: session.override,
     timestamp,
   };
+
+  if (errorType) {
+    response.errorType = errorType;
+  }
+
+  // Include session for retry/resume support when state is WAITING or ERROR
+  if (includeSession || session.state === "WAITING" || session.state === "ERROR") {
+    response.session = session;
+  }
+
+  return response;
 }
 
 /**
@@ -674,7 +1026,13 @@ export const _testHelpers = {
   calculateConsensusState,
   getBlockingAgents,
   getWaitingAgents,
+  getErrorAgents,
   createPaymentRequest,
+  validateConsensusInput,
+  validateOverride,
+  withTimeout,
+  TimeoutError,
   TRACK_WINNER_PRIZE,
   RUNNER_UP_PRIZE,
+  EXECUTOR_PREREQUISITES,
 };

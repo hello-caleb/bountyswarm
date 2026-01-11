@@ -142,6 +142,7 @@ function createApprovedConfig(): ConsensusConfig {
       maxRetries: 3,
       retryDelayMs: 10, // Short delay for tests
       waitingTimeoutMs: 1000,
+      globalTimeoutMs: 60000, // 1 minute for tests
     },
   };
 }
@@ -494,7 +495,11 @@ describe("Human Override", () => {
       startedAt: Date.now(),
       logs: [],
     };
+    // Set all prerequisites to APPROVED so override validation passes
+    session.votes.scout.status = "APPROVED";
+    session.votes.analyst.status = "APPROVED";
     session.votes.auditor.status = "REJECTED";
+    session.votes.compliance.status = "APPROVED";
     session.votes.auditor.message = "Age verification failed";
 
     const override: OverrideRequest = {
@@ -506,12 +511,41 @@ describe("Human Override", () => {
       },
     };
 
-    const updated = applyOverride(session, override);
+    const result = applyOverride(session, override);
 
-    expect(updated.state).toBe("OVERRIDE");
-    expect(updated.override).toBe(override);
-    expect(updated.votes.auditor.status).toBe("APPROVED");
-    expect(updated.votes.auditor.message).toContain("Override by admin");
+    expect(result.success).toBe(true);
+    expect(result.session.state).toBe("OVERRIDE");
+    expect(result.session.override).toBe(override);
+    expect(result.session.votes.auditor.status).toBe("APPROVED");
+    expect(result.session.votes.auditor.message).toContain("Override by admin");
+  });
+
+  it("rejects override that would create invalid state", () => {
+    const session: ConsensusSession = {
+      sessionId: "test-session",
+      winnerId: "winner-1",
+      projectId: "project-1",
+      state: "IN_PROGRESS",
+      votes: _testHelpers.createInitialVotes(),
+      startedAt: Date.now(),
+      logs: [],
+    };
+    // Prerequisites are still PENDING
+
+    const override: OverrideRequest = {
+      adminId: "admin-1",
+      reason: "Try to force executor approval",
+      timestamp: Date.now(),
+      agentOverrides: {
+        executor: "APPROVED", // Can't approve executor without prerequisites
+      },
+    };
+
+    const result = applyOverride(session, override);
+
+    expect(result.success).toBe(false);
+    expect(result.errors).toBeDefined();
+    expect(result.errors?.some(e => e.includes("prerequisite"))).toBe(true);
   });
 
   it("includes override in session status", () => {
@@ -563,6 +597,7 @@ describe("Retry Logic", () => {
         maxRetries: 3,
         retryDelayMs: 10,
         waitingTimeoutMs: 1000,
+        globalTimeoutMs: 60000,
       },
     };
 
@@ -608,6 +643,7 @@ describe("Retry Logic", () => {
         maxRetries: 3,
         retryDelayMs: 10,
         waitingTimeoutMs: 1000,
+        globalTimeoutMs: 60000,
       },
     };
 
@@ -698,5 +734,86 @@ describe("Prize Amounts", () => {
 
   it("runner up prize is 1250 MNEE", () => {
     expect(_testHelpers.RUNNER_UP_PRIZE).toBe("1250");
+  });
+});
+
+// ===================
+// New Feature Tests
+// ===================
+
+describe("Input Validation", () => {
+  it("returns ERROR for null input", async () => {
+    const response = await consensusOrchestrator(null as unknown as ConsensusInput);
+
+    expect(response.state).toBe("ERROR");
+    expect(response.errorType).toBe("VALIDATION_ERROR");
+  });
+
+  it("returns ERROR for missing winner data", async () => {
+    const input = createMockConsensusInput();
+    (input as Record<string, unknown>).winner = null;
+
+    const response = await consensusOrchestrator(input);
+
+    expect(response.state).toBe("ERROR");
+    expect(response.errorType).toBe("VALIDATION_ERROR");
+  });
+
+  it("returns ERROR for missing winnerProfile", async () => {
+    const input = createMockConsensusInput();
+    (input as Record<string, unknown>).winnerProfile = null;
+
+    const response = await consensusOrchestrator(input);
+
+    expect(response.state).toBe("ERROR");
+    expect(response.errorType).toBe("VALIDATION_ERROR");
+  });
+});
+
+describe("Error Agents", () => {
+  it("includes errorAgents in response", async () => {
+    const session: ConsensusSession = {
+      sessionId: "test-session",
+      winnerId: "winner-1",
+      projectId: "project-1",
+      state: "ERROR",
+      votes: _testHelpers.createInitialVotes(),
+      startedAt: Date.now(),
+      logs: [],
+    };
+    session.votes.scout.status = "ERROR";
+
+    const status = getSessionStatus(session);
+
+    expect(status.errorAgents).toContain("scout");
+    expect(status.errorAgents).toHaveLength(1);
+  });
+});
+
+describe("Session in Response", () => {
+  it("includes session in response when state is WAITING", async () => {
+    const input = createMockConsensusInput();
+    const config: ConsensusConfig = {
+      ...createApprovedConfig(),
+      scoutConfig: {
+        checkHackathonStatus: createMockStatusChecker("IN_PROGRESS"),
+      },
+    };
+
+    const response = await consensusOrchestrator(input, config);
+
+    expect(response.state).toBe("WAITING");
+    expect(response.session).toBeDefined();
+    expect(response.session?.sessionId).toBeDefined();
+  });
+
+  it("includes session in response when state is ERROR", async () => {
+    const input = createMockConsensusInput();
+    (input as Record<string, unknown>).winner = null;
+
+    const response = await consensusOrchestrator(input);
+
+    expect(response.state).toBe("ERROR");
+    expect(response.session).toBeDefined();
   });
 });
