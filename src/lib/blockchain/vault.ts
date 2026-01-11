@@ -20,8 +20,7 @@ export class BountySwarmVault {
         scoreHash: string
     ): Promise<string> {
         try {
-            // @ts-ignore
-            if (!this.contract.runner?.sendTransaction) throw new Error("Read-only instance");
+            if (!(this.contract.runner as ethers.Signer)?.sendTransaction) throw new Error("Read-only instance");
 
             // Assuming 18 decimals for MNEE (standard)
             const parsedAmount = ethers.parseUnits(amount, 18);

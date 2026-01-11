@@ -7,6 +7,8 @@ export const metadata: Metadata = {
   description: "AI-powered bug bounty hunting swarm with transparent prize distribution",
 };
 
+import { OrganizerProvider } from "@/context/OrganizerContext";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -14,7 +16,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <OrganizerProvider>{children}</OrganizerProvider>
+      </body>
     </html>
   );
 }

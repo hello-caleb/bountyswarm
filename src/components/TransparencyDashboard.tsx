@@ -14,6 +14,12 @@ type Agent = {
     consensusScore: number;
 };
 
+type VaultData = {
+    balance: string;
+    vaultAddress: string;
+    vaultEtherscan: string;
+};
+
 const INITIAL_AGENTS: Agent[] = [
     { id: '1', name: 'Scout', role: 'Discovery', status: 'IDLE', message: 'Waiting for trigger...', consensusScore: 100 },
     { id: '2', name: 'Analyst', role: 'Evaluation', status: 'IDLE', message: 'Waiting for data...', consensusScore: 100 },
@@ -25,6 +31,28 @@ const INITIAL_AGENTS: Agent[] = [
 export function TransparencyDashboard() {
     const [agents, setAgents] = useState<Agent[]>(INITIAL_AGENTS);
     const [logs, setLogs] = useState<string[]>([]);
+    const [vaultData, setVaultData] = useState<VaultData | null>(null);
+    const [lastTxHash, setLastTxHash] = useState<string | null>(null);
+
+    // Fetch real vault balance from Sepolia
+    useEffect(() => {
+        const fetchVaultBalance = async () => {
+            try {
+                const res = await fetch('/api/vault/balance');
+                const data = await res.json();
+                if (data.balance) {
+                    setVaultData(data);
+                }
+            } catch (err) {
+                console.error('Error fetching vault balance:', err);
+            }
+        };
+
+        fetchVaultBalance();
+        // Refresh balance every 30 seconds
+        const interval = setInterval(fetchVaultBalance, 30000);
+        return () => clearInterval(interval);
+    }, []);
 
     useEffect(() => {
         // Start listening to SSE stream
@@ -50,6 +78,11 @@ export function TransparencyDashboard() {
                     // Add to log
                     const time = new Date().toLocaleTimeString();
                     setLogs(prev => [`[${time}] ${data.agent}: ${data.message}`, ...prev].slice(0, 10));
+
+                    // Capture transaction hash if present
+                    if (data.txHash) {
+                        setLastTxHash(data.txHash);
+                    }
                 }
             } catch (err) {
                 console.error('Error parsing SSE', err);
@@ -81,23 +114,51 @@ export function TransparencyDashboard() {
                             Observe the consensus process in real-time.
                         </p>
                     </div>
-                    <div className="text-right">
-                        <div className="text-sm text-gray-500">Network</div>
-                        <div className="flex items-center gap-2 text-green-400">
-                            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
-                            Sepolia Testnet
+                    <div className="text-right flex flex-col items-end gap-2">
+                        <div className="flex items-center gap-2 text-green-400 text-xs uppercase tracking-widest bg-green-900/20 px-3 py-1 rounded-full border border-green-900/50">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
+                            Sepolia Live
                         </div>
+                        <a href="/create" className="text-sm font-bold bg-white text-black px-4 py-2 rounded hover:bg-neon-cyan transition-colors flex items-center gap-2">
+                            Launch App
+                            <span>→</span>
+                        </a>
                     </div>
                 </header>
 
                 {/* Stats Row */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="md:col-span-2">
-                        <PrizePoolStatus amount={12500} currency="MNEE" status="LOCKED" />
+                        <PrizePoolStatus
+                            amount={vaultData ? parseFloat(vaultData.balance) : 12500}
+                            currency="MNEE"
+                            status="LOCKED"
+                        />
+                        {vaultData && (
+                            <a
+                                href={vaultData.vaultEtherscan}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-neon-cyan hover:underline mt-2 inline-block"
+                            >
+                                View Vault on Etherscan →
+                            </a>
+                        )}
                     </div>
                     <div className="living-glass-panel p-6 flex flex-col justify-center items-center text-center">
-                        <div className="text-gray-400 text-xs uppercase">Time Until Next Round</div>
-                        <div className="text-3xl font-mono mt-2">04:12:33</div>
+                        <div className="text-gray-400 text-xs uppercase">Blockchain</div>
+                        <div className="text-xl font-mono mt-2 text-neon-green">LIVE</div>
+                        <div className="text-xs text-gray-500 mt-1">Sepolia Testnet</div>
+                        {lastTxHash && (
+                            <a
+                                href={`https://sepolia.etherscan.io/tx/${lastTxHash}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-neon-purple hover:underline mt-2"
+                            >
+                                Last Tx: {lastTxHash.slice(0, 10)}...
+                            </a>
+                        )}
                     </div>
                 </div>
 

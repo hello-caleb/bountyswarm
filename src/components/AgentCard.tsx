@@ -39,7 +39,7 @@ export function AgentCard({ name, role, status, message, consensusScore }: Agent
             <div className="h-[1px] bg-white/10 w-full my-2"></div>
 
             <div className="flex-1">
-                <p className="text-sm text-gray-200 italic">"{message || 'Waiting for task...'}"</p>
+                <p className="text-sm text-gray-200 italic">&ldquo;{message || 'Waiting for task...'}&rdquo;</p>
             </div>
 
             {consensusScore !== undefined && (

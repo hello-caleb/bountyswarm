@@ -15,7 +15,7 @@ export class MneeToken {
 
     constructor(tokenAddress: string, providerOrSigner: ethers.Provider | ethers.Signer) {
         this.contract = new ethers.Contract(tokenAddress, ERC20_ABI, providerOrSigner);
-        this.provider = (providerOrSigner as any).provider || providerOrSigner;
+        this.provider = (providerOrSigner as ethers.Signer).provider || providerOrSigner as ethers.Provider;
     }
 
     async getBalance(address: string): Promise<string> {
@@ -31,8 +31,7 @@ export class MneeToken {
 
     async approveVault(vaultAddress: string, amount: string): Promise<string> {
         try {
-            // @ts-ignore - Check for signer
-            if (!this.contract.runner?.sendTransaction) throw new Error("Read-only instance");
+            if (!(this.contract.runner as ethers.Signer)?.sendTransaction) throw new Error("Read-only instance");
 
             const decimals = await this.contract.decimals();
             const tx = await this.contract.approve(vaultAddress, ethers.parseUnits(amount, decimals));

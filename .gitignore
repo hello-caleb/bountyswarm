@@ -57,3 +57,4 @@ temp/
 *.pem
 *.key
 secrets/
+.vercel

@@ -3,6 +3,21 @@
 
 ![BountySwarm Dashboard](./public/screenshots/dashboard.png)
 
+## Network Configuration
+
+This demo is deployed on Sepolia testnet using a MockMNEE token with an identical ERC-20 interface to mainnet MNEE.
+
+**For production deployment**, replace the token address in your environment:
+```env
+# Testnet (current)
+NEXT_PUBLIC_MNEE_ADDRESS=0x3C545Eb4729c2eDC316b42685833e295F10B5959
+
+# Mainnet (production)
+NEXT_PUBLIC_MNEE_ADDRESS=0x8ccedbAe4916b79da7F3F612EfB2EB93A2bFD6cF
+```
+
+The smart contract logic remains identical - only the token address changes.
+
 ## 💡 Inspiration
 Traditional hackathons and bounty programs suffer from slow payouts and opaque judging. **BountySwarm** solves this by deploying a swarm of specialized AI agents that autonomously evaluate submissions, reach consensus, and distribute prizes via smart contracts on the MNEE blockchain—all in under 60 seconds.
 
