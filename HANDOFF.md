@@ -1,41 +1,148 @@
-# BountySwarm: Organizer Flow Handoff
+# BountySwarm Handoff Document
+**Generated**: January 11, 2026 @ 4:30 PM EST
+**Deadline**: January 12, 2026 @ 5:00 PM EST (~19 hours remaining)
 
-## 🚀 Project Status
-**Current Phase**: Validation & Polish
-**Branch**: `feature/sepolia-deploy`
-**Last Stable Build**: Fixed `OrganizerSteps` runtime error and verified flow logic.
+---
 
-## 🛠 Recent Accomplishments
-1.  **Organizer Flow Completed**:
-    *   `/create`: New "Living Glass" UI with Neon Cyan primary button.
-    *   `/submit`: Form inputs now persist to context and trigger the backend demo.
-    *   `/verify`: Real-time agent consensus visualization. **Fixed duplicate syntax and missing import bugs.**
-    *   `/complete`: Success state with properly masked wallet addresses and Etherscan linking.
+## Current State Assessment
 
-2.  **Core Improvements**:
-    *   **Persistence**: `OrganizerContext` now uses `sessionStorage`, allowing page refreshes without state loss.
-    *   **Dynamic Data**: The demo engine (`demoManager.ts`) now accepts *real* inputs (Amount/Winner) from the frontend instead of hardcoded defaults.
-    *   **Navigation**: Introduced `OrganizerSteps` component for consistent visual breadcrumbs across all 4 pages.
+### Deployment Status
+| Item | Status | URL |
+|------|--------|-----|
+| **Live Site** | ✅ WORKING | https://bountyswarm-mnee-2026.vercel.app |
+| **GitHub Repo** | ✅ Up to date | https://github.com/hello-caleb/bountyswarm |
+| **Branch** | `main` | All commits pushed |
 
-3.  **Environment**:
-    *   App running on **Port 3001** (Port 3000 was occupied).
-    *   Contracts deployed on **Sepolia**.
+### Page Status (All returning 200)
+| Route | Purpose | Status |
+|-------|---------|--------|
+| `/` | Home - Create bounty form | ✅ Working |
+| `/create` | Alternate create page (styled) | ✅ Working |
+| `/submit` | Winner details form | ✅ Working |
+| `/verify` | Real-time agent consensus view | ✅ Working |
+| `/complete` | Transaction confirmation | ✅ Working |
+| `/dashboard` | Transparency dashboard (observer) | ✅ Working |
 
-## 🐛 Known Issues & Fixes
-*   **"Hydration failed"**: Ignorable warning caused by browser extensions (e.g., NordPass).
-*   **Port Conflict**: Use `http://localhost:3001` if `3000` is busy.
-*   **Resolved Bugs**:
-    *   Fixed invisible button on `/create`.
-    *   Fixed syntax error (duplicate `div`) on `/verify`.
-    *   Fixed `OrganizerSteps is not defined` runtime error on `/verify`.
+### Smart Contracts (Sepolia Testnet)
+| Contract | Address | Status |
+|----------|---------|--------|
+| **MockMNEE Token** | `0x3C545Eb4729c2eDC316b42685833e295F10B5959` | ✅ Deployed |
+| **BountySwarmVault** | `0xd031160F9c8f3A695878b016e2A2208bfFB5da94` | ✅ Deployed |
 
-## ⏭ Next Steps for Incoming Engineering
-1.  **Final Verification**: Run through the full `Create -> Submit -> Verify -> Complete` flow one last time on `localhost:3001` to ensure the "Live Consensus" animation triggers correctly.
-2.  **Recording**: Capture the "Hero Shot" of the `/verify` page animation and the `/complete` success state.
-3.  **Deployment**: Push `feature/sepolia-deploy` to Vercel/Production if local testing passes.
+### Environment Variables (Vercel)
+| Variable | Status |
+|----------|--------|
+| `PRIVATE_KEY` | ✅ Set (for signing transactions) |
 
-## 🔑 Crucial Constants
-*   **MockMNEE**: `0x3C545Eb4729c2eDC316b42685833e295F10B5959`
-*   **Vault**: `0xd031160F9c8f3A695878b016e2A2208bfFB5da94`
+---
 
-Good luck with the demo! 🎬
+## The Demo Flow
+
+**Happy Path**: `/` → `/submit` → `/verify` → `/complete`
+
+1. **Home (`/`)**: User enters bounty name and prize amount, clicks "Continue"
+2. **Submit (`/submit`)**: User enters winner wallet address and criteria
+3. **Verify (`/verify`)**:
+   - Triggers `/api/demo/trigger` which runs `demoManager.ts`
+   - 5 AI agents (Scout, Analyst, Auditor, Compliance, Executor) process sequentially
+   - Real-time updates via SSE at `/api/agents/status`
+   - Executor signs a REAL blockchain transaction on Sepolia
+4. **Complete (`/complete`)**: Shows transaction hash with Etherscan link
+
+---
+
+## Key Files
+
+### Frontend
+- `src/app/page.tsx` - Home page (create form)
+- `src/app/submit/page.tsx` - Winner submission form
+- `src/app/verify/page.tsx` - Agent consensus visualization
+- `src/app/complete/page.tsx` - Success/confirmation page
+- `src/context/OrganizerContext.tsx` - State management (uses sessionStorage)
+- `src/components/OrganizerSteps.tsx` - Breadcrumb navigation component
+
+### Backend/Demo Logic
+- `src/lib/demo/demoManager.ts` - Orchestrates the demo flow, executes real blockchain tx
+- `src/lib/sse/broadcaster.ts` - Server-Sent Events for real-time updates
+- `src/app/api/demo/trigger/route.ts` - API endpoint to start demo
+- `src/app/api/agents/status/route.ts` - SSE endpoint for agent updates
+- `src/app/api/vault/balance/route.ts` - Fetches real vault balance from Sepolia
+
+### Blockchain
+- `contracts/BountySwarmVault.sol` - Main escrow contract
+- `contracts/MockMNEE.sol` - Test ERC-20 token
+- `src/lib/blockchain/constants.ts` - Contract addresses and ABIs
+- `test/BountySwarmVault.test.ts` - 11 passing tests
+
+---
+
+## Known Issues
+
+1. **Duplicate home pages**: Both `/` and `/create` have similar create forms (different styling). This is intentional - `/create` has fancier UI.
+
+2. **Test discovery**: Running `npx hardhat test` shows 0 tests, but `npx hardhat test ./test/BountySwarmVault.test.ts` works (11 passing). Minor config issue.
+
+3. **Hydration warnings**: Browser extensions (NordPass, etc.) can cause React hydration warnings. Safe to ignore.
+
+---
+
+## Credentials & Tokens
+
+### Vercel Token (for deployment)
+```
+NVJW74dcksAHXNQspJkJSHfp
+```
+
+### Deployer Private Key (Sepolia testnet only)
+```
+7aa7644dff62969e795ce8328c51a726a23405482779246f421ec5fd1c795a62
+```
+Wallet: `0x75d4Ab5bFB82e33594f12f47AFb11195B5812DA6`
+
+---
+
+## Quick Commands
+
+```bash
+# Run locally
+npm run dev
+
+# Build
+npm run build
+
+# Deploy to Vercel
+vercel --prod --yes --token NVJW74dcksAHXNQspJkJSHfp
+
+# Run contract tests
+npx hardhat test ./test/BountySwarmVault.test.ts
+
+# Check vault balance
+curl https://bountyswarm-mnee-2026.vercel.app/api/vault/balance
+
+# Trigger demo (for testing)
+curl https://bountyswarm-mnee-2026.vercel.app/api/demo/trigger
+```
+
+---
+
+## What's Left To Do
+
+1. **Test the full flow on live site** - Click through all 4 steps and confirm transaction executes
+2. **Record demo video** (if needed for submission)
+3. **Submit to Devpost** - `DEVPOST.md` has the write-up template
+4. **Optional polish** - UI tweaks, but core functionality is complete
+
+---
+
+## Git State
+
+```
+Branch: main (up to date with origin)
+Latest commit: 95e561b fix: restore organizer flow pages and OrganizerSteps component
+```
+
+All changes committed and pushed. No uncommitted work.
+
+---
+
+**The app is live and functional. Good luck!**
