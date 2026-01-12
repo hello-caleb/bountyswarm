@@ -1,0 +1,23 @@
+name: "AI Critic Audit"
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  critic-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # Required to post review comments
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: AI Code Review
+        uses: fxchen/code-review@latest # Example Marketplace Action
+        with:
+          model: 'gpt-4o' # Use a high-reasoning model for audits
+          openai-key: ${{ secrets.OPENAI_API_KEY }}
+          style: 'concise'
+          persona: 'senior_architect'
